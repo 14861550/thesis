@@ -51,18 +51,29 @@ function PhaseB({ profileData, onDone, onBack }) {
     setMessages((p) => [...p, { role: 'user', text: t, id: `u${Date.now()}` }]);
     setDraft(''); setPending(true); setError(null);
     try {
-      const { reply } = await postJSON('/api/chat', { sessionId: sessionId.current, message: t });
-      setMessages((p) => [...p, { role: 'guide', paras: splitParas(reply), id: `g${Date.now()}` }]);
+      const { reply, recommendations } = await postJSON('/api/chat', { sessionId: sessionId.current, message: t });
+      setMessages((p) => [...p, { role: 'guide', paras: splitParas(reply), recommendations: recommendations || null, id: `g${Date.now()}` }]);
       setShowLock(true); // once the guide has replied at least once, allow locking in
     } catch (e) {
       setError(e.message || 'Something went wrong. Please try again.');
     } finally { setPending(false); }
   };
 
-  const transcript = () => messages.map((m) => ({
-    role: m.role === 'user' ? 'user' : 'guide',
-    text: m.role === 'user' ? m.text : (m.paras || []).join('\n\n'),
-  }));
+  const transcript = () => messages.map((m) => {
+    if (m.role === 'user') return { role: 'user', text: m.text };
+    let text = (m.paras || []).join('\n\n');
+    if (m.recommendations && m.recommendations.length) {
+      // Fold the structured cards back into the saved transcript so the record
+      // (and the eval pipeline) keeps the full recommendation text.
+      text += '\n\n' + m.recommendations
+        .map((r, i) => `${i + 1}. ${r.title} — ${r.why}${r.path ? ` Path: ${r.path}` : ''}`)
+        .join('\n');
+    }
+    return { role: 'guide', text };
+  });
+
+  // Selecting a recommendation card fills the lock-in choice.
+  const chooseRec = (title) => { setCareer(title); setShowLock(true); };
 
   const canLock = career.trim() && familiarity && interest;
   const lockIn = () => {
@@ -94,6 +105,19 @@ function PhaseB({ profileData, onDone, onBack }) {
                     <div className="bubble">
                       {m.role === 'guide' ? m.paras.map((p, i) => <p key={i}>{p}</p>) : m.text}
                     </div>
+                    {m.recommendations && m.recommendations.length > 0 && (
+                      <div className="rec-grid">
+                        {m.recommendations.map((r, i) => (
+                          <button key={i} type="button"
+                            className={`rec-card ${career.trim() === r.title ? 'active' : ''}`}
+                            onClick={() => chooseRec(r.title)}>
+                            <div className="rec-title">{r.title}</div>
+                            {r.why && <div className="rec-why">{r.why}</div>}
+                            {r.path && <div className="rec-path">{r.path}</div>}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}

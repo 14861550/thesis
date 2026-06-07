@@ -429,6 +429,24 @@ textarea.text-input { resize: vertical; min-height: 96px; line-height: 1.55; }
 .pb-lock-h { font-size: 15px; font-weight: 500; margin-bottom: 4px; }
 .pb-composer { max-width: 720px; margin: 0 auto; width: 100%; }
 
+/* Phase B — clickable career recommendation cards */
+.rec-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
+@media (max-width: 560px) { .rec-grid { grid-template-columns: 1fr; } }
+.rec-card {
+  border: 1px solid var(--border-strong); background: var(--surface); border-radius: var(--radius-md);
+  padding: 14px; text-align: left; cursor: pointer; display: flex; flex-direction: column; gap: 5px;
+  transition: border-color .15s ease, box-shadow .15s ease, background .15s ease;
+}
+.rec-card:hover { border-color: var(--ink-2); }
+.rec-card.active { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+.rec-card .rec-title { font-size: 14.5px; font-weight: 500; letter-spacing: -0.01em; color: var(--ink); }
+.rec-card .rec-why { font-size: 12.5px; color: var(--ink-2); line-height: 1.45; }
+.rec-card .rec-path { font-size: 12px; color: var(--muted); line-height: 1.4; }
+.rec-card .rec-path::before {
+  content: "Path · "; font-family: var(--font-mono); font-size: 9.5px; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--muted-2);
+}
+
 /* Time caps */
 .time-note {
   display: flex; align-items: center; gap: 10px; flex-wrap: wrap;

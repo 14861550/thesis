@@ -59,6 +59,37 @@ async function openSession(phase, systemPrompt, nudge) {
   return { sessionId, opening };
 }
 
+const PHASE_B_REC_FALLBACK =
+  'Based on what you\'ve shared, here are five directions worth exploring — tap whichever you\'re most curious to step into.';
+
+/**
+ * Pull the Phase-B career recommendations out of a guide reply.
+ * The guide is prompted to emit a ```json {"recommendations":[{title,why,path}]}```
+ * block; we parse it into cards and strip it from the visible text. Returns the
+ * cleaned prose plus the structured list (null if absent / malformed).
+ */
+function extractRecommendations(reply) {
+  const m = reply.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if (!m) return { clean: reply, recommendations: null };
+  let recs = null;
+  try {
+    const parsed = JSON.parse(m[1].trim());
+    if (Array.isArray(parsed?.recommendations)) {
+      recs = parsed.recommendations
+        .filter((r) => r && r.title)
+        .slice(0, 5)
+        .map((r) => ({
+          title: String(r.title).slice(0, 120),
+          why: String(r.why || '').slice(0, 400),
+          path: String(r.path || '').slice(0, 400),
+        }));
+    }
+  } catch { /* malformed block -> leave recs null, fall back to raw reply */ }
+  if (!recs || !recs.length) return { clean: reply, recommendations: null };
+  const clean = reply.replace(m[0], '').trim() || PHASE_B_REC_FALLBACK;
+  return { clean, recommendations: recs };
+}
+
 const app = express();
 app.use(express.json({ limit: '512kb' }));
 
@@ -116,6 +147,11 @@ app.post('/api/chat', async (req, res) => {
   try {
     const reply = await complete(session.systemPrompt, session.messages);
     session.messages.push({ role: 'assistant', content: reply });
+    // Phase B proposes five career directions as a structured block -> cards.
+    if (session.phase === 'b') {
+      const { clean, recommendations } = extractRecommendations(reply);
+      return res.json({ reply: clean, recommendations });
+    }
     res.json({ reply });
   } catch (err) {
     console.error('POST /api/chat failed:', err?.message || err);
