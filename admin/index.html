@@ -402,6 +402,100 @@ function EvalView() {
   );
 }
 
+function SimDetail({ id, onClose }) {
+  const [d, setD] = useState(null);
+  const [err, setErr] = useState(null);
+  useEffect(() => { api('/api/admin/simulations/' + id).then(setD).catch((e) => setErr(e.message)); }, [id]);
+  const body = () => {
+    if (err) return <p className="muted">{err}</p>;
+    if (!d) return <p className="muted">Loading…</p>;
+    const tr = Array.isArray(d.transcript) ? d.transcript : [];
+    const p = d.persona || {};
+    return (
+      <div>
+        <h2>Simulation <code className="id">{short(id)}</code> <Pill s={d.status} /></h2>
+        <p className="muted">Career: {p.career || '—'} · condition {d.config && d.config.condition} · turns {d.config && d.config.turns} · {fmt(d.created_at)}</p>
+        {d.error && <div className="note">{d.error}</div>}
+        <div className="panel" style={{ marginTop: 12 }}>
+          <h3>Simulated Phase-C transcript (silicon participant ↔ future-self bot)</h3>
+          <div className="chat" style={{ maxHeight: 460 }}>
+            {tr.map((m, i) => <div key={i} className={'bub ' + (m.role === 'user' ? 'user' : 'other')}>{m.text}</div>)}
+            {!tr.length && <p className="muted">No transcript yet.</p>}
+          </div>
+        </div>
+      </div>
+    );
+  };
+  return <div className="overlay" onClick={onClose}><div className="modal" onClick={(e) => e.stopPropagation()}><span className="close" onClick={onClose}>×</span>{body()}</div></div>;
+}
+
+function SimView() {
+  const [rows, setRows] = useState([]);
+  const [sessions, setSessions] = useState([]);
+  const [src, setSrc] = useState('');
+  const [turns, setTurns] = useState(5);
+  const [busy, setBusy] = useState(false);
+  const [open, setOpen] = useState(null);
+  const [err, setErr] = useState(null);
+  const load = useCallback(() => { api('/api/admin/simulations').then(setRows).catch((e) => setErr(e.message)); }, []);
+  useEffect(() => { load(); api('/api/admin/sessions?status=completed').then(setSessions).catch(() => {}); }, [load]);
+  useEffect(() => {
+    const t = setInterval(() => { if (rows.some((r) => r.status === 'queued' || r.status === 'running')) load(); }, 3000);
+    return () => clearInterval(t);
+  }, [rows, load]);
+  const launch = async () => {
+    if (!src) { setErr('Pick a completed session.'); return; }
+    setBusy(true); setErr(null);
+    try { await api('/api/admin/simulations', { method: 'POST', body: JSON.stringify({ source_session_id: src, turns: Number(turns) }) }); load(); }
+    catch (e) { setErr(e.message); } finally { setBusy(false); }
+  };
+  return (
+    <div>
+      <div className="note">
+        A <b>silicon participant</b> built from a completed session's profile chats with the same future-self bot the humans used.
+        The simulated transcript is shown beside the real one on the read-only <a href="/results" target="_blank" rel="noreferrer">/results</a> page.
+        Each run ≈ 2×turns Sonnet calls.
+      </div>
+      <div className="panel" style={{ marginBottom: 16 }}>
+        <h3>Launch a simulation</h3>
+        <div className="row" style={{ marginBottom: 8 }}>
+          <label>Source session&nbsp;
+            <select value={src} onChange={(e) => setSrc(e.target.value)}>
+              <option value="">— pick a completed session —</option>
+              {sessions.map((s) => <option key={s.id} value={s.id}>{(s.career || '—') + ' · ' + short(s.id) + ' · ' + s.condition}</option>)}
+            </select>
+          </label>
+          <label>turns <input type="number" min="1" max="12" value={turns} onChange={(e) => setTurns(e.target.value)} style={{ width: 64 }} /></label>
+          <button className="btn pri" disabled={busy || !src} onClick={launch}>{busy ? 'Launching…' : 'Launch simulation'}</button>
+          {err && <span className="err-inline">{err}</span>}
+        </div>
+      </div>
+      <table>
+        <thead><tr><th>Run</th><th>Status</th><th>Career</th><th>Source</th><th>Turns</th><th>Created</th><th></th></tr></thead>
+        <tbody>
+          {rows.map((r) => (
+            <tr key={r.id}>
+              <td><code className="id">{short(r.id)}</code></td>
+              <td><Pill s={r.status} /></td>
+              <td>{r.career || <span className="muted">—</span>}</td>
+              <td><code className="id">{r.source_session_id ? short(r.source_session_id) : '—'}</code></td>
+              <td>{r.config && r.config.turns}</td>
+              <td className="muted">{fmt(r.created_at)}</td>
+              <td>
+                {r.status === 'done'
+                  ? <button className="btn" onClick={() => setOpen(r.id)}>View</button>
+                  : r.status === 'failed' ? <span className="muted" title={r.error}>failed</span> : <span className="muted">…</span>}
+              </td>
+            </tr>
+          ))}
+          {!rows.length && <tr><td colSpan="7" className="muted">No simulations yet.</td></tr>}
+        </tbody>
+      </table>
+      {open && <SimDetail id={open} onClose={() => setOpen(null)} />}
+    </div>
+  );
+}
+
 function App() {
   const [tab, setTab] = useState('sessions');
   const [dark, setDark] = useState(() => document.documentElement.getAttribute('data-theme') === 'dark');
@@ -420,13 +514,15 @@ function App() {
         <div className="tabs">
           <div className={'tab' + (tab === 'sessions' ? ' on' : '')} onClick={() => setTab('sessions')}>Sessions</div>
           <div className={'tab' + (tab === 'eval' ? ' on' : '')} onClick={() => setTab('eval')}>Eval runs</div>
+          <div className={'tab' + (tab === 'sim' ? ' on' : '')} onClick={() => setTab('sim')}>Simulations</div>
         </div>
         <div className="spacer"></div>
+        <a className="btn" href="/results" target="_blank" rel="noreferrer">Results ↗</a>
         <a className="btn" href="/" target="_blank" rel="noreferrer">Participant app ↗</a>
         <button className="icon-btn" onClick={toggleTheme} title="Toggle light / dark">{dark ? '☀' : '☾'}</button>
         <button className="btn" onClick={logout}>Sign out</button>
       </header>
-      <main>{tab === 'sessions' ? <SessionsView /> : <EvalView />}</main>
+      <main>{tab === 'sessions' ? <SessionsView /> : tab === 'eval' ? <EvalView /> : <SimView />}</main>
     </div>
   );
 }

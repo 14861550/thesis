@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Results · Sign in · Thesis</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&family=Geist+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --bg: #ffffff; --surface: #ffffff; --surface-2: #f6f6f5; --surface-3: #efefee;
+      --ink: #0d0d0d; --ink-2: #3a3a39; --muted: #8c8c88; --muted-2: #c2c2bd;
+      --border: #ececea; --border-strong: #dcdcd8;
+      --accent: #b5552f; --accent-soft: #f4e2d8; --accent-ink: #7a3318;
+      --shadow-pop: 0 12px 40px -16px rgba(13,13,13,.22);
+      --radius-md: 12px; --radius-lg: 20px; --radius-pill: 999px;
+      --font-sans: "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+      --font-serif: "Instrument Serif", ui-serif, Georgia, "Times New Roman", serif;
+      --font-mono: "Geist Mono", ui-monospace, "SF Mono", Menlo, monospace;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme]) {
+        --bg: #1a1a19; --surface: #212120; --surface-2: #2a2a28; --surface-3: #323230;
+        --ink: #ececea; --ink-2: #cfcfca; --muted: #9a9a93; --muted-2: #6a6a64;
+        --border: #323230; --border-strong: #42423f;
+        --accent: #d9764d; --accent-soft: #36241b; --accent-ink: #e9b196;
+        --shadow-pop: 0 16px 50px -18px rgba(0,0,0,.6);
+      }
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; display: grid; place-items: center; padding: 24px;
+      font-family: var(--font-sans); background: var(--bg); color: var(--ink);
+      font-size: 15px; line-height: 1.55; -webkit-font-smoothing: antialiased; }
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg);
+      padding: 32px; width: 372px; max-width: 100%; box-shadow: var(--shadow-pop); }
+    .eyebrow { display: inline-flex; align-items: center; gap: 8px; font-family: var(--font-mono);
+      font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted);
+      padding: 6px 12px; border-radius: var(--radius-pill); border: 1px solid var(--border); }
+    .eyebrow .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+    h1 { font-family: var(--font-serif); font-weight: 400; font-size: 34px; line-height: 1.1;
+      letter-spacing: -0.02em; margin: 20px 0 6px; }
+    h1 em { font-style: italic; color: var(--accent); }
+    p { color: var(--muted); font-size: 14px; margin: 0 0 22px; }
+    label { display: block; font-size: 12.5px; color: var(--muted); margin-bottom: 8px; }
+    input { width: 100%; padding: 12px 14px; border-radius: var(--radius-md);
+      border: 1px solid var(--border-strong); background: var(--surface); color: var(--ink);
+      font: inherit; font-size: 15px; transition: border-color .15s ease; }
+    input:focus { outline: none; border-color: var(--ink-2); }
+    button { width: 100%; margin-top: 14px; height: 46px; border: 1px solid var(--accent);
+      border-radius: var(--radius-pill); background: var(--accent); color: #fff; font-family: inherit;
+      font-weight: 500; font-size: 14.5px; cursor: pointer; transition: opacity .15s ease; }
+    button:hover { opacity: .9; }
+    .err { color: var(--accent-ink); font-size: 13px; margin-top: 12px; min-height: 16px; }
+  </style>
+</head>
+<body>
+  <form class="card" id="f">
+    <span class="eyebrow"><span class="dot"></span>Study results</span>
+    <h1>Results <em>access</em></h1>
+    <p>Enter the read-only results token to view the anonymized study results.</p>
+    <label for="t">Results token</label>
+    <input id="t" type="password" placeholder="RESULTS_TOKEN" autocomplete="current-password" autofocus/>
+    <button type="submit">Continue</button>
+    <div class="err" id="e"></div>
+  </form>
+  <script>
+    document.getElementById('f').addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      const token = document.getElementById('t').value;
+      const e = document.getElementById('e');
+      e.textContent = '';
+      try {
+        const r = await fetch('/results/login', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token }),
+        });
+        if (r.ok) { location.href = '/results'; }
+        else { const d = await r.json().catch(() => ({})); e.textContent = d.error || 'Invalid token.'; }
+      } catch (err) { e.textContent = 'Network error.'; }
+    });
+  </script>
+</body>
+</html>

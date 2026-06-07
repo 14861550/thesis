@@ -52,3 +52,22 @@ CREATE TABLE IF NOT EXISTS eval_runs (
 );
 
 CREATE INDEX IF NOT EXISTS eval_runs_created_idx ON eval_runs (created_at DESC);
+
+-- simulations — one row per "silicon participant" bot↔bot run. A persona built
+-- from a (real or synthetic) profile chats with the SAME future-self bot the
+-- humans used; the simulated transcript is compared with the real one on the
+-- read-only /results page. No name is stored in `persona`.
+CREATE TABLE IF NOT EXISTS simulations (
+  id                uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  created_at        timestamptz NOT NULL DEFAULT now(),
+  status            text NOT NULL DEFAULT 'queued' CHECK (status IN ('queued','running','done','failed')),
+  source_type       text NOT NULL DEFAULT 'real'  CHECK (source_type IN ('real','synthetic')),
+  source_session_id uuid REFERENCES sessions(id) ON DELETE SET NULL,
+  persona           jsonb NOT NULL DEFAULT '{}'::jsonb,  -- profileData used to build the silicon participant (no name)
+  config            jsonb NOT NULL DEFAULT '{}'::jsonb,  -- { model, turns, condition }
+  transcript        jsonb,                               -- simulated Phase-C transcript [{role,text}]
+  error             text
+);
+
+CREATE INDEX IF NOT EXISTS simulations_created_idx ON simulations (created_at DESC);
+CREATE INDEX IF NOT EXISTS simulations_source_idx  ON simulations (source_session_id);

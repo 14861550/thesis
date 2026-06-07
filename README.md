@@ -35,6 +35,8 @@ the metrics code is reused unchanged.
   `study` object so `reconstructStudy()` rebuilds it 1:1 for the eval loader.
 - **`messages`** — flattened transcript turns (`phase` b/c, `idx`, `role`, `text`).
 - **`eval_runs`** — one row per pipeline run (`config`, `summary`, `report_html`).
+- **`simulations`** — one row per silicon-participant bot↔bot run (`persona`,
+  `config`, `transcript`); powers the "real vs simulated" comparison on `/results`.
 
 ---
 
@@ -45,6 +47,7 @@ the metrics code is reused unchanged.
 | `ANTHROPIC_API_KEY` | yes (chat) | Claude API key (server-side only) |
 | `DATABASE_URL` | optional | Postgres. Unset → in-memory mode, admin disabled |
 | `ADMIN_TOKEN` | optional | Shared secret gating `/admin`. Unset → admin disabled (503) |
+| `RESULTS_TOKEN` | optional | Read-only share link for `/results` (anonymized). Unset → `/results` falls back to `ADMIN_TOKEN` |
 | `PORT` | optional | Default 3000 |
 | `DATABASE_SSL` | optional | `disable` to force-off SSL (remote DBs use SSL automatically) |
 | `PYTHON_BIN` | optional | Interpreter for eval runs (default `python3`) |
@@ -88,6 +91,26 @@ every boot via `initSchema()`. To apply manually:
 
 Auth is a single shared secret (Bearer header, httpOnly `admin_token` cookie set
 by `/admin/login`, or `?token=`). **Minimal by design** — no user accounts.
+- **Simulations:** launch a silicon-participant run (pick a completed session +
+  number of turns); a persona built from that profile chats with the same
+  future-self bot, and the transcript is stored for `/results`.
+
+---
+
+## Results page (`/results`, read-only, gated by `RESULTS_TOKEN`)
+A supervisor-facing, **anonymized** surface — share the link without granting
+admin powers. Names are replaced with labels (P01, P02…); it can only read.
+- **Overview** — sessions collected so far (by condition/career) and mean pre→post
+  Δ per IBM outcome (continuity / vividness / closeness). Descriptive pilot only.
+- **RQ results** — judge↔human agreement (MAE / Spearman ρ / QWK / ICC / inter-run
+  SD per outcome × depth × structure) from stored eval runs, correctly labeled.
+- **Real vs simulated** — each simulated Phase-C transcript beside the matched
+  real one (illustrative face validity, not a measured result).
+- **Browse sessions** — every completed session, anonymized, with scores, both
+  transcripts, and pre→post answers.
+
+Auth: `RESULTS_TOKEN` (or `ADMIN_TOKEN`) via `?token=` → httpOnly `results_token`
+cookie. All `/api/results/*` payloads are de-identified + name-stripped.
 
 ---
 
@@ -121,10 +144,15 @@ at this scale.
 2. **Postgres:** add a Railway Postgres plugin and set the service variable
    `DATABASE_URL = ${{Postgres.DATABASE_URL}}` (private network; SSL handled
    automatically for remote hosts).
-3. **Env:** set `ANTHROPIC_API_KEY`, `ADMIN_TOKEN` (long random), and optionally
+3. **Env:** set `ANTHROPIC_API_KEY`, `ADMIN_TOKEN` (long random), `RESULTS_TOKEN`
+   (long random, distinct — the read-only supervisor link), and optionally
    `PYTHON_BIN=python3`. Do **not** set `PORT` (Railway injects it).
 4. Deploys are triggered by pushing to the connected GitHub repo; the schema
-   applies itself on boot.
+   (incl. the new `simulations` table) applies itself on boot.
+
+> **Rotate any previously-exposed secrets** (`ANTHROPIC_API_KEY`, the Postgres
+> password in `DATABASE_URL`, `ADMIN_TOKEN`) and set a fresh `RESULTS_TOKEN`.
+> Secrets belong only in Railway env vars, never in the repo.
 
 ---
 
@@ -133,7 +161,10 @@ Transcripts, open-ended answers, and the post-survey **contact email** are PII.
 The admin area is auth-gated; full transcripts are never logged. **Export
 de-identified** strips `contact` and redacts email addresses in free text and
 transcripts (name/place redaction is best-effort and flagged — manual review
-required). Real-participant use requires the team's ethics clearance and a defined
+required). The `/results` page serves only de-identified, name-stripped data
+(`P01…` labels) and is read-only, so it can be shared with supervisors without
+exposing PII; manual review of transcripts is still advised before any external
+sharing. Real-participant use requires the team's ethics clearance and a defined
 retention/deletion policy.
 
 ---

@@ -23,6 +23,7 @@ import { buildPhaseBPrompt, buildSystemPrompt, buildBaselinePrompt } from './lib
 import { dbEnabled, initSchema } from './lib/db.js';
 import { mountStudyRoutes } from './lib/study_routes.js';
 import { mountAdminRoutes } from './lib/admin_routes.js';
+import { mountResultsRoutes } from './lib/results_routes.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -185,6 +186,7 @@ app.post('/api/regenerate', async (req, res) => {
 // Mounted before the static handler so /admin and /api/* take precedence.
 mountStudyRoutes(app);
 mountAdminRoutes(app);
+mountResultsRoutes(app);
 
 // --- Static frontend ------------------------------------------------------
 // Block server source, libs, DB schema, eval internals, tests, and the admin
@@ -193,6 +195,7 @@ const STATIC_DENY = /^\/(lib|db|test|node_modules|eval_pipeline)(\/|$)/;
 app.use((req, res, next) => {
   if (STATIC_DENY.test(req.path)) return res.status(404).end();
   if (req.path === '/admin/index.html' || req.path === '/admin/login.html') return res.status(404).end();
+  if (req.path === '/results/index.html' || req.path === '/results/login.html') return res.status(404).end();
   next();
 });
 
