@@ -110,6 +110,12 @@ const ok = (msg) => console.log('✓ ' + msg);
   }
   ok('Pre-survey completed (5 pages)');
 
+  // 4b. Pause A→B ("Take a breath") — advances only on Continue
+  await tick();
+  if (!byText('Continue')) fail('Pause A→B did not render');
+  click(byText('Continue')); await tick(60);
+  ok('Pause A→B advanced on Continue');
+
   // 5. Phase B
   await tick(60);
   if (!window.document.querySelector('.pb-wrap')) fail('Phase B did not render');
@@ -128,11 +134,21 @@ const ok = (msg) => console.log('✓ ' + msg);
   click(stepBtn); await tick(80);
   ok('Phase B completed (card selected + career locked: Data analyst)');
 
+  // 5b. Pause B→C ("Begin" starts the phase-c clock)
+  if (!byText('Begin')) fail('Pause B→C did not render');
+  click(byText('Begin')); await tick(80);
+  ok('Pause B→C advanced on Begin');
+
   // 6. Phase C role-play
   if (!window.document.querySelector('.chat-app')) fail('Phase C chat did not render');
   if (!/in ten years|it's me/i.test(window.document.body.textContent)) fail('Phase C opener missing');
   ok('Phase C rendered with model opener');
   click(byText('Finish')); await tick();
+
+  // 6b. Pause C→POST ("Thank you") — advances only on Continue
+  if (!byText('Continue')) fail('Pause C→POST did not render');
+  click(byText('Continue')); await tick();
+  ok('Pause C→POST advanced on Continue');
 
   // 7. Post-survey (4 pages)
   for (let p = 0; p < 4; p++) {
@@ -143,6 +159,13 @@ const ok = (msg) => console.log('✓ ' + msg);
     click(btn); await tick();
   }
   ok('Post-survey completed (4 pages)');
+
+  // 7b. Free continuation (optional, logged separately) — finish to reach Closure
+  await tick();
+  const doneBtn = byText("I'm done");
+  if (!doneBtn) fail('Free continuation screen did not render');
+  click(doneBtn); await tick();
+  ok('Free continuation screen rendered + closed');
 
   // 8. Closure + data export
   if (!/Thank you/i.test(window.document.body.textContent)) fail('Closure did not render');

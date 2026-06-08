@@ -37,7 +37,7 @@ function Landing({ onBegin }) {
           <button className="btn ghost lg" onClick={() => document.getElementById('how')?.scrollIntoView({behavior: 'smooth', block: 'start'})}>How it works</button>
         </div>
         <div className="hero-foot">
-          <span className="pill">~ 15 minute session</span>
+          <span className="pill">~ 50–60 minute session</span>
           <span className="pill">A role-play, not a recommendation</span>
         </div>
       </section>
@@ -240,7 +240,7 @@ function Consent({ onAgree, onBack }) {
           <div className="eyebrow"><span className="dot" />Before we begin</div>
           <h2 className="consent-title">Informed consent</h2>
           <div className="consent-body">
-            <p>This is a research prototype from a BSc Business Analytics thesis at the University of Amsterdam. You'll fill in a short questionnaire, have a guided conversation to choose a career, then talk with an AI role-playing your future self in that career. Afterwards you'll answer a few reflection questions. The whole session takes about 45–60 minutes.</p>
+            <p>This is a research prototype from a BSc Business Analytics thesis at the University of Amsterdam. You'll fill in a short questionnaire, have a guided conversation to choose a career, then talk with an AI role-playing your future self in that career. Afterwards you'll answer a few reflection questions. The whole session takes about 50–60 minutes, is completed unsupervised on your own device, and your responses are stored on a secure cloud server.</p>
             <ul>
               <li>Participation is <strong>voluntary</strong>; you may stop at any time without giving a reason.</li>
               <li>Your questionnaire answers and the conversation are processed to run the study and may be analysed in anonymised form.</li>
@@ -270,4 +270,36 @@ function Consent({ onAgree, onBack }) {
   );
 }
 
-Object.assign(window, { Landing, AvatarCreation, Questionnaire, QUESTIONS, SWATCHES, Consent });
+/* ============================================================
+   PAUSE — "Take a breath" interstitial between stages (§3.9 / §15).
+   A calm, near-empty screen that names what's done and what's next and
+   advances ONLY when the participant presses Continue (never timed/auto).
+   The B→C pause's Continue is what starts the Phase-C clock (the role-play
+   mounts on continue), so resting here costs no conversation time.
+   ============================================================ */
+function Pause({ title, lines = [], cta = 'Continue', eyebrow = 'Take a breath', onContinue }) {
+  return (
+    <div className="flow">
+      <nav className="topnav">
+        <div className="brand"><BrandMark size={22} /><span>Thesis</span></div>
+        <div className="end" />
+      </nav>
+      <div className="flow-body">
+        <div className="sv-wrap" style={{ textAlign: 'center' }}>
+          <div className="eyebrow" style={{ justifyContent: 'center' }}><span className="dot" />{eyebrow}</div>
+          <h2 className="consent-title">{title}</h2>
+          {lines.map((t, i) => (
+            <p key={i} className="sv-intro"
+              style={{ maxWidth: '48ch', margin: '0 auto 14px', color: i ? 'var(--muted)' : undefined }}>{t}</p>
+          ))}
+          <button className="btn accent" style={{ marginTop: 10 }} onClick={onContinue}>
+            {cta}
+            <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M3 6.5h7M6.5 3l4 3.5-4 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+Object.assign(window, { Landing, AvatarCreation, Questionnaire, QUESTIONS, SWATCHES, Consent, Pause });

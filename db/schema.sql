@@ -28,6 +28,20 @@ CREATE INDEX IF NOT EXISTS sessions_status_idx    ON sessions (status);
 CREATE INDEX IF NOT EXISTS sessions_condition_idx ON sessions (condition);
 CREATE INDEX IF NOT EXISTS sessions_created_idx   ON sessions (created_at DESC);
 
+-- Two-axis routing (Build Plan §6): `rec` (stage-B prompt) is orthogonal to
+-- `condition` (= `cond`, stage-C prompt). `study` is an analysis tag only; `pid`
+-- is the researcher-assigned prefixed id (e.g. K017 / A032). `free_continuation`
+-- holds the post-survey free chat (same future-self convo continuing; logged
+-- separately, NOT in the main analysis — §3.9b). Added idempotently so existing
+-- deploys migrate on boot without dropping data.
+ALTER TABLE sessions ADD COLUMN IF NOT EXISTS rec   text NOT NULL DEFAULT 'guide';
+ALTER TABLE sessions ADD COLUMN IF NOT EXISTS study text NOT NULL DEFAULT 'kangzhi';
+ALTER TABLE sessions ADD COLUMN IF NOT EXISTS pid   text;
+ALTER TABLE sessions ADD COLUMN IF NOT EXISTS free_continuation jsonb NOT NULL DEFAULT '{}'::jsonb;
+CREATE INDEX IF NOT EXISTS sessions_rec_idx   ON sessions (rec);
+CREATE INDEX IF NOT EXISTS sessions_study_idx ON sessions (study);
+CREATE INDEX IF NOT EXISTS sessions_pid_idx   ON sessions (pid);
+
 CREATE TABLE IF NOT EXISTS messages (
   id          bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   session_id  uuid NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,

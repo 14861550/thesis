@@ -66,7 +66,7 @@ async function postJSON(url, body) {
 const SOFT_MIN = 20;
 const HARD_MIN = 30;
 
-function Chat({ profile, condition = 'main', profileData = {}, phaseBNotes = '', career: careerProp, onComplete, onExit }) {
+function Chat({ profile, condition = 'main', profileData = {}, phaseBNotes = '', location = '', career: careerProp, onComplete, onExit }) {
   const career = careerProp || profileData.career || 'this career';
   const initials = useMemo(
     () => (profile.name?.trim().split(/\s+/).map(w => w[0]).join('').slice(0, 2) || '—').toUpperCase(),
@@ -84,12 +84,13 @@ function Chat({ profile, condition = 'main', profileData = {}, phaseBNotes = '',
   const [showSuggestions, setShowSuggestions] = useState(true);
   const [error, setError] = useState(null);
   const [elapsedMin, setElapsedMin] = useState(0);
+  const [nextRest, setNextRest] = useState(SOFT_MIN); // recurring rest prompt cadence (§11.4)
   const scrollRef = useRef(null);
   const sessionId = useRef(null);
   const startedAt = useRef(null);
 
-  const soft = elapsedMin >= SOFT_MIN && elapsedMin < HARD_MIN;
   const hard = elapsedMin >= HARD_MIN;
+  const soft = !hard && elapsedMin >= nextRest; // fires at 20 min and again every 20 if it continues
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -112,7 +113,7 @@ function Chat({ profile, condition = 'main', profileData = {}, phaseBNotes = '',
       setError(null);
       try {
         const { sessionId: sid, opening: text } =
-          await postJSON('/api/phase-c/session', { condition, profileData, phaseBNotes });
+          await postJSON('/api/phase-c/session', { condition, profileData, phaseBNotes, location });
         if (cancelled) return;
         sessionId.current = sid;
         startedAt.current = Date.now();
@@ -136,7 +137,14 @@ function Chat({ profile, condition = 'main', profileData = {}, phaseBNotes = '',
     }));
     const durationSec = startedAt.current ? Math.round((Date.now() - startedAt.current) / 1000) : 0;
     const turnCount = messages.filter(m => m.role === 'user').length;
-    onComplete && onComplete({ transcript, durationSec, turnCount });
+    const hitSoft = elapsedMin >= SOFT_MIN;
+    const endedBy = hard ? 'hard_cap' : 'user';
+    // Hand back the live phase-c sessionId so free continuation can keep the SAME
+    // future-self conversation going (Build Plan §7 Screen 8 / §3.9b).
+    onComplete && onComplete(
+      { transcript, durationSec, turnCount, hitSoftCap: hitSoft, hitHardCap: hard, endedBy },
+      sessionId.current,
+    );
   };
 
   const send = async (text) => {
@@ -289,7 +297,8 @@ function Chat({ profile, condition = 'main', profileData = {}, phaseBNotes = '',
           )}
           {soft && (
             <div className="time-note soft">
-              You've been talking for about 20 minutes — a natural place to wrap up whenever you're ready.
+              You've been talking for a while — a natural place to pause or wrap up whenever you're ready. No rush.
+              <button className="link-btn" onClick={() => setNextRest((n) => n + SOFT_MIN)}>Keep going</button>
               <button className="link-btn" onClick={finish}>Finish &amp; reflect →</button>
             </div>
           )}
@@ -319,4 +328,97 @@ function Chat({ profile, condition = 'main', profileData = {}, phaseBNotes = '',
   );
 }
 
-Object.assign(window, { Chat, postJSON, splitParas, renderRich, buildOpening });
+/* ============================================================
+   FREE CONTINUATION (Build Plan §7 Screen 8 / §3.9b)
+   The SAME future-self conversation continuing after the post-survey. It reuses
+   the live phase-c sessionId (so the model still has the full role-play history),
+   the clock keeps counting, and it is logged SEPARATELY — never part of the main
+   analysis. Optional; the participant is already "done".
+   ============================================================ */
+function FreeContinuation({ profile = {}, career = 'this career', sessionId, onDone }) {
+  const { useState, useEffect, useRef } = React;
+  const [messages, setMessages] = useState([]);
+  const [draft, setDraft] = useState('');
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState(null);
+  const startedAt = useRef(Date.now());
+  const scrollRef = useRef(null);
+  const initials = ((profile.name || '').trim().split(/\s+/).map((w) => w[0]).join('').slice(0, 2) || '—').toUpperCase();
+
+  useEffect(() => { const el = scrollRef.current; if (el) el.scrollTop = el.scrollHeight; }, [messages, pending]);
+
+  const wrapUp = () => {
+    const transcript = messages.map((m) => ({
+      role: m.role === 'user' ? 'user' : 'future',
+      text: m.role === 'user' ? m.text : (m.paras || []).join('\n\n'),
+    }));
+    const durationSec = Math.round((Date.now() - startedAt.current) / 1000);
+    const turnCount = messages.filter((m) => m.role === 'user').length;
+    onDone && onDone({ transcript, durationSec, turnCount });
+  };
+
+  const send = async (text) => {
+    const t = text.trim();
+    if (!t || pending) return;
+    if (!sessionId) { setError('This chat has ended — your study session is already saved.'); return; }
+    setMessages((p) => [...p, { role: 'user', text: t, id: `u${Date.now()}` }]);
+    setDraft(''); setPending(true); setError(null);
+    try {
+      const { reply } = await postJSON('/api/chat', { sessionId, message: t });
+      setMessages((p) => [...p, { role: 'future', paras: splitParas(reply), id: `f${Date.now()}` }]);
+    } catch (e) {
+      setError(e.message || 'Something went wrong. Please try again.');
+    } finally { setPending(false); }
+  };
+
+  return (
+    <div className="flow">
+      <nav className="topnav">
+        <div className="brand"><BrandMark size={22} /><span>Thesis</span></div>
+        <div className="end"><button className="btn accent sm" onClick={wrapUp}>I'm done →</button></div>
+      </nav>
+      <div className="flow-body">
+        <div className="pb-wrap">
+          <div className="sv-wrap" style={{ textAlign: 'center', paddingBottom: 8 }}>
+            <div className="eyebrow" style={{ justifyContent: 'center' }}><span className="dot" />Just for you</div>
+            <p className="sv-hint" style={{ maxWidth: '46ch', margin: '0 auto' }}>
+              The study is finished. If you like, keep talking with your future self — this part is private and isn't analysed.
+            </p>
+          </div>
+          <div className="pb-scroll" ref={scrollRef}>
+            <div className="chat-thread">
+              {messages.map((m) => (
+                <div key={m.id} className={`msg ${m.role === 'user' ? 'user' : 'future'} fade-in`}>
+                  <div className="avatar">{m.role === 'user' ? (profile.name?.[0] || 'Y').toUpperCase() : <MiniAvatar initials={initials} color={profile.color} size={30} />}</div>
+                  <div style={{ minWidth: 0, flex: m.role === 'user' ? 'unset' : 1 }}>
+                    <div className="bubble">{m.role === 'future' ? m.paras.map((p, i) => <p key={i}>{renderRich(p)}</p>) : m.text}</div>
+                  </div>
+                </div>
+              ))}
+              {pending && (
+                <div className="msg future fade-in">
+                  <div className="avatar"><MiniAvatar initials={initials} color={profile.color} size={30} /></div>
+                  <div className="bubble"><div className="typing"><span></span><span></span><span></span></div></div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+      <div className="composer-wrap pb-composer">
+        {error && <div className="composer-error">{error}</div>}
+        <div className="composer">
+          <textarea rows={1} placeholder={`Message ${profile.name || 'your future self'}…`}
+            value={draft} onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(draft); } }} />
+          <button className="send" disabled={!draft.trim() || pending} onClick={() => send(draft)} aria-label="Send">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 11V3M3 7l4-4 4 4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg>
+          </button>
+        </div>
+        <div className="composer-foot">This continuation is private — it isn't part of the study analysis.</div>
+      </div>
+    </div>
+  );
+}
+
+Object.assign(window, { Chat, FreeContinuation, postJSON, splitParas, renderRich, buildOpening });

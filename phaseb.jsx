@@ -11,7 +11,7 @@
 const PB_FAMILIARITY = { points: 7, left: 'Not at all familiar', right: 'Very familiar' };
 const PB_INTEREST = { points: 7, left: 'Not at all', right: 'Very strong' };
 
-function PhaseB({ profileData, onDone, onBack }) {
+function PhaseB({ profileData, rec = 'guide', onDone, onBack }) {
   const { useState, useEffect, useRef } = React;
   const [messages, setMessages] = useState([]);
   const [booting, setBooting] = useState(true);
@@ -20,6 +20,7 @@ function PhaseB({ profileData, onDone, onBack }) {
   const [error, setError] = useState(null);
   const [showLock, setShowLock] = useState(false);
   const [career, setCareer] = useState('');
+  const [location, setLocation] = useState('');
   const [familiarity, setFamiliarity] = useState(undefined);
   const [interest, setInterest] = useState(undefined);
   const sessionId = useRef(null);
@@ -44,7 +45,7 @@ function PhaseB({ profileData, onDone, onBack }) {
     let cancelled = false;
     (async () => {
       try {
-        const { sessionId: sid, opening } = await postJSON('/api/phase-b/session', { profileData });
+        const { sessionId: sid, opening } = await postJSON('/api/phase-b/session', { profileData, rec });
         if (cancelled) return;
         sessionId.current = sid;
         setMessages([{ role: 'guide', paras: splitParas(opening), id: 'g0' }]);
@@ -93,6 +94,7 @@ function PhaseB({ profileData, onDone, onBack }) {
     if (!canLock) return;
     onDone({
       career: career.trim(),
+      location: location.trim(),
       familiarity, interestStrength: interest,
       transcript: transcript(),
     });
@@ -161,6 +163,9 @@ function PhaseB({ profileData, onDone, onBack }) {
               </p>
               <input className="sv-input" placeholder="The career you choose — e.g. Data analyst"
                 value={career} onChange={(e) => setCareer(e.target.value)} />
+              <input className="sv-input" style={{ marginTop: 8 }}
+                placeholder="Where, for the next ten years? — a city, country, region, or 'open' (optional)"
+                value={location} onChange={(e) => setLocation(e.target.value)} />
               <div style={{ marginTop: 10 }}>
                 <ScaleRow id="fam" text={`How familiar do you already feel with ${career.trim() || 'this career'}?`}
                   scale={PB_FAMILIARITY} value={familiarity} onChange={(_, v) => setFamiliarity(v)} />
