@@ -63,6 +63,7 @@ async function main() {
   const depths = a.depths || 'D0,D1,D2,D3';
   const structures = a.structures || 'structured';
   const k = a.k ? parseInt(a.k, 10) : 5;
+  const concurrency = a.concurrency !== undefined ? parseInt(a.concurrency, 10) : 1;
 
   const base = path.join(ROOT, 'eval_pipeline', 'out', `silicon_${Date.now()}`);
   const sessionsDir = path.join(base, 'sessions');
@@ -76,10 +77,10 @@ async function main() {
 
   const t0 = Date.now();
   await runCohortToDir({
-    csvPath, n, phaseBTurns, phaseCTurns, participantModel, botModel,
+    csvPath, n, phaseBTurns, phaseCTurns, participantModel, botModel, concurrency,
     outDir: sessionsDir,
-    onProgress: (done, total, pid) =>
-      console.log(`  [${String(done).padStart(3)}/${total}] ${pid}  (${((Date.now() - t0) / 1000).toFixed(0)}s)`),
+    onProgress: (done, total, pid, reused) =>
+      console.log(`  [${String(done).padStart(3)}/${total}] ${pid}  (${((Date.now() - t0) / 1000).toFixed(0)}s)${reused ? ' [resumed]' : ''}`),
   });
   console.log(`\nPass A done — ${n} study JSON(s) in ${sessionsDir}`);
 
