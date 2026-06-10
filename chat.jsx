@@ -66,7 +66,14 @@ async function postJSON(url, body) {
 const SOFT_MIN = 20;
 const HARD_MIN = 30;
 
-function Chat({ profile, condition = 'main', profileData = {}, phaseBNotes = '', location = '', career: careerProp, onComplete, onExit }) {
+/* Render elapsed minutes as a quiet mm:ss count-up (§7: a running clock in the
+ * header; §16 forbids countdowns/pressure cues — counting UP is the spec). */
+function mmss(min) {
+  const s = Math.max(0, Math.floor(min * 60));
+  return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+}
+
+function Chat({ profile, condition = 'main', profileData = {}, phaseBNotes = '', location = '', career: careerProp, onComplete, onExit, onAutosave }) {
   const career = careerProp || profileData.career || 'this career';
   const initials = useMemo(
     () => (profile.name?.trim().split(/\s+/).map(w => w[0]).join('').slice(0, 2) || '—').toUpperCase(),
@@ -85,6 +92,8 @@ function Chat({ profile, condition = 'main', profileData = {}, phaseBNotes = '',
   const [error, setError] = useState(null);
   const [elapsedMin, setElapsedMin] = useState(0);
   const [nextRest, setNextRest] = useState(SOFT_MIN); // recurring rest prompt cadence (§11.4)
+  const [saveState, setSaveState] = useState('');      // '' | 'saving' | 'saved' (§13b autosave indicator)
+  const [lastFailed, setLastFailed] = useState(null);  // failed user turn, for a clean "Try again" (§13b)
   const scrollRef = useRef(null);
   const sessionId = useRef(null);
   const startedAt = useRef(null);
@@ -97,13 +106,27 @@ function Chat({ profile, condition = 'main', profileData = {}, phaseBNotes = '',
     if (el) el.scrollTop = el.scrollHeight;
   }, [messages, pending, booting]);
 
-  // Tick the clock once the conversation has started.
+  // Tick the clock once the conversation has started (1s so the header clock runs smoothly).
   useEffect(() => {
     const t = setInterval(() => {
       if (startedAt.current) setElapsedMin((Date.now() - startedAt.current) / 60000);
-    }, 5000);
+    }, 1000);
     return () => clearInterval(t);
   }, []);
+
+  // Persist the transcript-so-far after every change (§13a: nothing lives only
+  // in browser memory; the user turn is saved before the slow model call too,
+  // because `send` appends it to state before awaiting the reply).
+  const toTranscript = (msgs) => msgs.map((m) => ({
+    role: m.role === 'user' ? 'user' : 'future',
+    text: m.role === 'user' ? m.text : (m.paras || []).join('\n\n'),
+    ts: m.ts,
+  }));
+  useEffect(() => {
+    if (!onAutosave || !messages.length) return;
+    setSaveState('saving');
+    Promise.resolve(onAutosave(toTranscript(messages))).finally(() => setSaveState('saved'));
+  }, [messages]);
 
   // Create the phase-c session (condition-routed) and fetch the opener on mount.
   useEffect(() => {
@@ -117,11 +140,11 @@ function Chat({ profile, condition = 'main', profileData = {}, phaseBNotes = '',
         if (cancelled) return;
         sessionId.current = sid;
         startedAt.current = Date.now();
-        setMessages([{ role: 'future', paras: splitParas(text), id: 'm0' }]);
+        setMessages([{ role: 'future', paras: splitParas(text), id: 'm0', ts: new Date().toISOString() }]);
       } catch (e) {
         if (cancelled) return;
         startedAt.current = Date.now();
-        setMessages([{ role: 'future', paras: opening, id: 'm0' }]);
+        setMessages([{ role: 'future', paras: opening, id: 'm0', ts: new Date().toISOString() }]);
         setError("Couldn't reach your future self — replies won't work until the server is running.");
       } finally {
         if (!cancelled) setBooting(false);
@@ -131,10 +154,7 @@ function Chat({ profile, condition = 'main', profileData = {}, phaseBNotes = '',
   }, []); // run once
 
   const finish = () => {
-    const transcript = messages.map(m => ({
-      role: m.role === 'user' ? 'user' : 'future',
-      text: m.role === 'user' ? m.text : (m.paras || []).join('\n\n'),
-    }));
+    const transcript = toTranscript(messages);
     const durationSec = startedAt.current ? Math.round((Date.now() - startedAt.current) / 1000) : 0;
     const turnCount = messages.filter(m => m.role === 'user').length;
     const hitSoft = elapsedMin >= SOFT_MIN;
@@ -147,24 +167,35 @@ function Chat({ profile, condition = 'main', profileData = {}, phaseBNotes = '',
     );
   };
 
-  const send = async (text) => {
-    const t = text.trim();
-    if (!t || pending || booting || hard) return;
-    if (!sessionId.current) { setError('No active session — reload to reconnect.'); return; }
-    setMessages(prev => [...prev, { role: 'user', text: t, id: `u${Date.now()}` }]);
-    setDraft('');
-    setShowSuggestions(false);
+  // Ask the model for a reply to `t`. The user bubble is appended by `send`;
+  // `retry` reuses the same path WITHOUT re-appending it (the server rolled the
+  // failed turn back, so re-sending the text is clean — §13b).
+  const requestReply = async (t) => {
     setPending(true);
     setError(null);
     try {
       const { reply } = await postJSON('/api/chat', { sessionId: sessionId.current, message: t });
-      setMessages(prev => [...prev, { role: 'future', paras: splitParas(reply), id: `f${Date.now()}` }]);
+      setMessages(prev => [...prev, { role: 'future', paras: splitParas(reply), id: `f${Date.now()}`, ts: new Date().toISOString() }]);
+      setLastFailed(null);
     } catch (e) {
-      setError(e.message || 'Something went wrong. Please try again.');
+      setLastFailed(t);
+      setError("Connection hiccuped — your progress is saved.");
     } finally {
       setPending(false);
     }
   };
+
+  const send = async (text) => {
+    const t = text.trim();
+    if (!t || pending || booting || hard) return;
+    if (!sessionId.current) { setError('No active session — reload to reconnect.'); return; }
+    setMessages(prev => [...prev, { role: 'user', text: t, id: `u${Date.now()}`, ts: new Date().toISOString() }]);
+    setDraft('');
+    setShowSuggestions(false);
+    await requestReply(t);
+  };
+
+  const retry = () => { if (lastFailed && !pending) requestReply(lastFailed); };
 
   // Regenerate ("This doesn't feel like me") is intentionally REMOVED for the
   // controlled study: letting a participant re-roll the future self's reply makes
@@ -219,6 +250,7 @@ function Chat({ profile, condition = 'main', profileData = {}, phaseBNotes = '',
             </div>
           </div>
           <div style={{display: 'flex', gap: 8, alignItems: 'center'}}>
+            <span className="clock" title="Time in this conversation">{mmss(elapsedMin)}</span>
             <span className="chip"><span className="pulse"></span>A role-play · you decide</span>
             <button className="btn accent sm" onClick={finish} title="Move on to the reflection">
               Finish &amp; reflect
@@ -281,7 +313,12 @@ function Chat({ profile, condition = 'main', profileData = {}, phaseBNotes = '',
 
         <div className="composer-wrap">
           {error && (
-            <div className="composer-error" role="status">{error}</div>
+            <div className="composer-error" role="status">
+              {error}
+              {lastFailed && (
+                <button className="link-btn" onClick={retry} disabled={pending}>Try again</button>
+              )}
+            </div>
           )}
           {soft && (
             <div className="time-note soft">
@@ -309,7 +346,10 @@ function Chat({ profile, condition = 'main', profileData = {}, phaseBNotes = '',
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 11V3M3 7l4-4 4 4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/></svg>
             </button>
           </div>
-          <div className="composer-foot">Ask anything — your future self is here to think it through with you.</div>
+          <div className="composer-foot">
+            Ask anything — your future self is here to think it through with you.
+            {saveState && <span className="save-note">{saveState === 'saving' ? ' · Saving…' : ' · Progress saved ✓'}</span>}
+          </div>
         </div>
       </main>
     </div>
@@ -323,7 +363,7 @@ function Chat({ profile, condition = 'main', profileData = {}, phaseBNotes = '',
    the clock keeps counting, and it is logged SEPARATELY — never part of the main
    analysis. Optional; the participant is already "done".
    ============================================================ */
-function FreeContinuation({ profile = {}, career = 'this career', sessionId, onDone }) {
+function FreeContinuation({ profile = {}, career = 'this career', sessionId, onDone, onAutosave }) {
   const { useState, useEffect, useRef } = React;
   const [messages, setMessages] = useState([]);
   const [draft, setDraft] = useState('');
@@ -335,25 +375,33 @@ function FreeContinuation({ profile = {}, career = 'this career', sessionId, onD
 
   useEffect(() => { const el = scrollRef.current; if (el) el.scrollTop = el.scrollHeight; }, [messages, pending]);
 
+  const toTranscript = (msgs) => msgs.map((m) => ({
+    role: m.role === 'user' ? 'user' : 'future',
+    text: m.role === 'user' ? m.text : (m.paras || []).join('\n\n'),
+    ts: m.ts,
+  }));
+
+  // Same per-turn durability as the role-play (§13a) — logged separately (§3.9b).
+  useEffect(() => {
+    if (!onAutosave || !messages.length) return;
+    onAutosave(toTranscript(messages));
+  }, [messages]);
+
   const wrapUp = () => {
-    const transcript = messages.map((m) => ({
-      role: m.role === 'user' ? 'user' : 'future',
-      text: m.role === 'user' ? m.text : (m.paras || []).join('\n\n'),
-    }));
     const durationSec = Math.round((Date.now() - startedAt.current) / 1000);
     const turnCount = messages.filter((m) => m.role === 'user').length;
-    onDone && onDone({ transcript, durationSec, turnCount });
+    onDone && onDone({ transcript: toTranscript(messages), durationSec, turnCount });
   };
 
   const send = async (text) => {
     const t = text.trim();
     if (!t || pending) return;
     if (!sessionId) { setError('This chat has ended — your study session is already saved.'); return; }
-    setMessages((p) => [...p, { role: 'user', text: t, id: `u${Date.now()}` }]);
+    setMessages((p) => [...p, { role: 'user', text: t, id: `u${Date.now()}`, ts: new Date().toISOString() }]);
     setDraft(''); setPending(true); setError(null);
     try {
       const { reply } = await postJSON('/api/chat', { sessionId, message: t });
-      setMessages((p) => [...p, { role: 'future', paras: splitParas(reply), id: `f${Date.now()}` }]);
+      setMessages((p) => [...p, { role: 'future', paras: splitParas(reply), id: `f${Date.now()}`, ts: new Date().toISOString() }]);
     } catch (e) {
       setError(e.message || 'Something went wrong. Please try again.');
     } finally { setPending(false); }
@@ -369,8 +417,9 @@ function FreeContinuation({ profile = {}, career = 'this career', sessionId, onD
         <div className="pb-wrap">
           <div className="sv-wrap" style={{ textAlign: 'center', paddingBottom: 8 }}>
             <div className="eyebrow" style={{ justifyContent: 'center' }}><span className="dot" />Just for you</div>
-            <p className="sv-hint" style={{ maxWidth: '46ch', margin: '0 auto' }}>
-              The study is finished. If you like, keep talking with your future self — this part is private and isn't analysed.
+            <p className="sv-hint" style={{ maxWidth: '52ch', margin: '0 auto' }}>
+              The study questions are done. If you like, keep talking with your future self — this part is
+              still recorded for the researcher, but it's outside the main study and entirely optional.
             </p>
           </div>
           <div className="pb-scroll" ref={scrollRef}>
@@ -403,7 +452,7 @@ function FreeContinuation({ profile = {}, career = 'this career', sessionId, onD
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 11V3M3 7l4-4 4 4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg>
           </button>
         </div>
-        <div className="composer-foot">This continuation is private — it isn't part of the study analysis.</div>
+        <div className="composer-foot">Optional extra chat — recorded, but not part of the main study analysis.</div>
       </div>
     </div>
   );

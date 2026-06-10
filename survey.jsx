@@ -55,35 +55,39 @@ const WORK_VALUE_ITEMS = [
 ];
 const VALUE_SCALE = { points: 7, left: 'Not important', right: 'Extremely important' };
 
+// Interests — RIASEC, one item per Holland type, 1–7 (Build Plan §10.1c;
+// descriptions grounded in public O*NET / Holland definitions).
 const RIASEC = [
-  { id: 'ria_R', key: 'R', text: 'building, fixing, or working with your hands and tools' },
-  { id: 'ria_I', key: 'I', text: 'analysing data, researching, or solving abstract problems' },
-  { id: 'ria_A', key: 'A', text: 'creating, designing, writing, or expressing ideas' },
-  { id: 'ria_S', key: 'S', text: 'helping, teaching, advising, or working closely with people' },
-  { id: 'ria_E', key: 'E', text: 'leading, persuading, selling, or starting ventures' },
-  { id: 'ria_C', key: 'C', text: 'organising, structuring, or working with records and details' },
+  { id: 'ria_R', key: 'R', text: 'Realistic — hands-on, practical work with tools, machines, plants, animals, or things you can build or fix' },
+  { id: 'ria_I', key: 'I', text: 'Investigative — working with ideas: analyzing problems, investigating, and figuring out how things work' },
+  { id: 'ria_A', key: 'A', text: 'Artistic — creative, expressive work: designing, writing, performing, or coming up with original ideas' },
+  { id: 'ria_S', key: 'S', text: 'Social — working with people: helping, teaching, advising, or caring for others' },
+  { id: 'ria_E', key: 'E', text: 'Enterprising — leading, persuading, or selling: starting things and influencing people toward a goal' },
+  { id: 'ria_C', key: 'C', text: 'Conventional — organized work with clear procedures: handling data, details, records, and keeping things in order' },
 ];
-const RIASEC_SCALE = { points: 5, left: 'Strongly dislike', right: 'Strongly enjoy' };
+const RIASEC_SCALE = { points: 7, left: 'Not interested', right: 'Extremely interested' };
 
-// Future-self measures (same items pre and post)
+// Future-self measures (same items pre and post).
+// FSCS = the 2-item pictorial pair (Ersner-Hershfield et al., 2009): similarity +
+// connectedness, answered on the same seven-pairs overlapping-circles format as
+// the IOS (Build Plan §10.1e). Continuity score = mean of the two.
 const FSCS = [
-  { id: 'fscs_similar', text: 'How similar do you feel to your future self, about 10 years from now?' },
-  { id: 'fscs_connected', text: 'How connected do you feel to that future self?' },
-  { id: 'fscs_care', text: 'How much do you care about what happens to that future self?' },
+  { id: 'fscs_similar', text: 'How SIMILAR do you feel to your future self, 10 years from now?', hint: 'Similar = how alike you and that future person are — personality, values, what matters to you.' },
+  { id: 'fscs_connected', text: 'How CONNECTED do you feel to your future self?', hint: "Connected = how much that future person feels like 'you', one continuous person rather than a stranger." },
 ];
 const VIVIDNESS = [
   { id: 'viv_clear', text: 'I can picture my future self clearly.' },
-  { id: 'viv_tangible', text: 'My future self feels tangible and real to me.' },
-  { id: 'viv_detail', text: "I can imagine specific details of my future self's daily life." },
-  { id: 'viv_felt', text: 'I can imagine what it would feel like to be my future self.' },
+  { id: 'viv_tangible', text: 'My future self feels tangible and real to me, not abstract.' },
+  { id: 'viv_detail', text: "I can imagine specific details about my future self's life." },
+  { id: 'viv_felt', text: 'When I think about my future self, I can almost feel what it would be like.' },
 ];
-const SEVEN = { points: 7, left: 'Not at all', right: 'Completely' };
 const AGREE7 = { points: 7, left: 'Strongly disagree', right: 'Strongly agree' };
 
+// Manipulation checks — verbatim from Build Plan §10.2.
 const MANIPULATION = [
-  { id: 'mc_style', text: 'My future self spoke in a way that sounded like me.' },
-  { id: 'mc_scene', text: 'My future self described their life in specific, concrete scenes.' },
-  { id: 'mc_understand', text: 'My future self seemed to genuinely understand my situation and background.' },
+  { id: 'mc_style', text: 'My future self spoke in a way that felt like my own way of talking.' },
+  { id: 'mc_scene', text: 'My future self described their life through specific, concrete moments rather than vague generalities.' },
+  { id: 'mc_understand', text: 'My future self seemed to genuinely understand my current situation and who I am.' },
 ];
 const OPEN_ENDED = [
   { id: 'oe_real', text: 'Which moment in the conversation made you most feel this was genuinely your future self? What made it feel real?' },
@@ -135,15 +139,15 @@ function LikertGrid({ items, scale, prefix, answers, onChange }) {
   );
 }
 
-function IOSField({ id, value, onChange, career }) {
-  // Seven option pairs with increasing overlap (1 = far apart, 7 = near-complete).
+/* Seven pairs of overlapping (Euler) circles — the shared response format for
+ * the IOS item and the two FSCS items (Build Plan §10.1d/e). Left circle =
+ * "You now", right = "You in 10 years"; overlap grows monotonically 1→7. */
+function CirclesField({ id, text, hint, value, onChange }) {
   const opts = Array.from({ length: 7 }, (_, i) => i + 1);
   return (
     <div className="sv-ios">
-      <div className="sv-scale-text">
-        Which picture best describes how close you feel to your future self
-        {career ? ` as a ${career}` : ', about 10 years from now'}?
-      </div>
+      <div className="sv-scale-text">{text}</div>
+      {hint && <div className="sv-hint" style={{ marginBottom: 6 }}>{hint}</div>}
       <div className="sv-ios-row">
         {opts.map((n) => {
           // Two equal circles whose centre distance shrinks MONOTONICALLY from
@@ -170,10 +174,22 @@ function IOSField({ id, value, onChange, career }) {
         })}
       </div>
       <div className="sv-scale-row" style={{ marginTop: 2 }}>
-        <span className="sv-scale-end">Far apart</span>
-        <span className="sv-scale-end" style={{ marginLeft: 'auto' }}>Almost one</span>
+        <span className="sv-scale-end">Completely separate</span>
+        <span className="sv-scale-end" style={{ marginLeft: 'auto' }}>Almost completely overlapping</span>
+      </div>
+      <div className="sv-scale-row">
+        <span className="sv-scale-end">Left circle = you now · right circle = you in 10 years</span>
       </div>
     </div>
+  );
+}
+
+/* IOS adapted to the future self (Aron et al., 1992) — single circles item. */
+function IOSField({ id, value, onChange, career }) {
+  return (
+    <CirclesField id={id} value={value} onChange={onChange}
+      text={`Pick the pair of circles that best shows how close and overlapping you feel with your future self${career ? ` as a ${career}` : ''}.`}
+      hint="Close and overlapping = how much that future person feels part of who you are." />
   );
 }
 
@@ -229,7 +245,7 @@ function buildPreSections(answers, onChange) {
     {
       title: 'A little about you',
       intro: 'This prototype is for Economics & Business students at the UvA.',
-      ids: ['age', 'gender', 'year'],
+      ids: ['age', 'gender', 'year', ...(answers.year === 'Something else' ? ['year_custom'] : [])],
       node: (
         <div className="sv-section">
           <label className="sv-field">
@@ -247,6 +263,13 @@ function buildPreSections(answers, onChange) {
             <ChoiceField id="year" value={answers.year} onChange={set}
               options={['First year', 'Second year', 'Third year', 'Something else']} />
           </div>
+          {answers.year === 'Something else' && (
+            <label className="sv-field">
+              <span className="sv-label">Which year? (a number)</span>
+              <input className="sv-input" type="number" min="1" max="10"
+                value={answers.year_custom || ''} onChange={(e) => set('year_custom', e.target.value)} />
+            </label>
+          )}
           <label className="sv-field">
             <span className="sv-label">Programme / major</span>
             <input className="sv-input" type="text"
@@ -270,7 +293,7 @@ function buildPreSections(answers, onChange) {
     },
     {
       title: 'What kind of work appeals',
-      intro: 'For each type of activity, indicate how much you would enjoy work that involves…',
+      intro: 'How interested are you in each kind of work?',
       ids: RIASEC.map((i) => i.id),
       node: <LikertGrid items={RIASEC} scale={RIASEC_SCALE} answers={answers} onChange={set} />,
     },
@@ -281,7 +304,10 @@ function buildPreSections(answers, onChange) {
       node: (
         <div className="sv-section">
           <IOSField id="ios_pre" value={answers.ios_pre} onChange={set} />
-          <LikertGrid items={FSCS} scale={SEVEN} answers={answers} onChange={set} />
+          {FSCS.map((it) => (
+            <CirclesField key={it.id} id={it.id} text={it.text} hint={it.hint}
+              value={answers[it.id]} onChange={set} />
+          ))}
           <LikertGrid items={VIVIDNESS} scale={AGREE7} answers={answers} onChange={set} />
         </div>
       ),
@@ -302,7 +328,10 @@ function buildPostSections(answers, onChange, career, study = 'kangzhi') {
       node: (
         <div className="sv-section">
           <IOSField id="ios_post" value={answers.ios_post} onChange={set} career={career} />
-          <LikertGrid items={fscsPost} scale={SEVEN} answers={answers} onChange={set} />
+          {fscsPost.map((it) => (
+            <CirclesField key={it.id} id={it.id} text={it.text} hint={it.hint}
+              value={answers[it.id]} onChange={set} />
+          ))}
           <LikertGrid items={vivPost} scale={AGREE7} answers={answers} onChange={set} />
         </div>
       ),
@@ -396,10 +425,14 @@ function PagedSurvey({ sections, answers, onChange, onDone, onBack, eyebrow }) {
         </div>
       </div>
       <div className="flow-foot">
-        <button className="btn ghost" onClick={back}>
-          <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M10 6.5H3M6.5 3l-4 3.5 4 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
-          Back
-        </button>
+        {/* No Back out of the survey's first page unless a handler exists — the
+            post-survey must not offer a way back into the role-play (§7). */}
+        {(page > 0 || onBack) ? (
+          <button className="btn ghost" onClick={back}>
+            <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M10 6.5H3M6.5 3l-4 3.5 4 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+            Back
+          </button>
+        ) : <span />}
         <span className="step-label">{page + 1} OF {sections.length}</span>
         <button className="btn accent" disabled={!complete} onClick={next}>
           {isLast ? 'Done' : 'Continue'}
@@ -456,8 +489,9 @@ function topWorkValues(pre) {
 // Build the structured profileData the backend prompts expect (career added later).
 function buildProfileData(pre) {
   const major = pre.major === undefined ? 'Economics & Business' : (pre.major || 'Economics & Business');
+  const year = pre.year === 'Something else' && pre.year_custom ? `Year ${pre.year_custom}` : pre.year;
   return {
-    year: pre.year,
+    year,
     demographics: { age: pre.age, gender: pre.gender, major },
     bigFive: scoreBigFive(pre),
     values: topWorkValues(pre),
@@ -466,6 +500,6 @@ function buildProfileData(pre) {
 }
 
 Object.assign(window, {
-  ScaleRow, LikertGrid, IOSField, ChoiceField, MultiField,
+  ScaleRow, LikertGrid, CirclesField, IOSField, ChoiceField, MultiField,
   PreSurvey, PostSurvey, buildProfileData, scoreBigFive, scoreRiasec,
 });

@@ -162,6 +162,40 @@ const short = (id) => (id || '').slice(0, 8);
 const fmt = (t) => t ? new Date(t).toLocaleString() : '—';
 const Pill = ({ s }) => <span className={'pill s-' + s}>{s}</span>;
 
+// Tidy CSV export — one row per run, all scalars + scored scales (§14). Built
+// client-side from the JSON export so it always matches what the DB holds.
+const CSV_MEAN = (o, ids) => {
+  const v = ids.map((i) => Number(o && o[i])).filter((x) => !Number.isNaN(x));
+  return v.length ? (v.reduce((a, b) => a + b, 0) / v.length).toFixed(2) : '';
+};
+function studiesToCsv(studies) {
+  const cols = ['session_id', 'pid', 'study', 'rec', 'cond', 'status', 'created_at', 'completed_at',
+    'career', 'location', 'familiarity', 'interest_strength', 'c_duration_sec', 'c_turns',
+    'c_ended_by', 'free_turns', 'ios_pre', 'ios_post', 'fscs_pre_mean', 'fscs_post_mean',
+    'viv_pre_mean', 'viv_post_mean', 'mc_style', 'mc_scene', 'mc_understand'];
+  const esc = (x) => { const s = x == null ? '' : String(x); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+  const rows = studies.map((s) => {
+    const meta = s.meta || {}, pb = s.phaseB || {}, pc = s.phaseC || {}, fc = s.freeContinuation || {};
+    const pre = s.preSurvey || {}, post = s.postSurvey || {};
+    return [meta.sessionId, meta.pid, meta.study, meta.rec, meta.condition,
+      meta.status, meta.createdAt, meta.completedAt,
+      pb.career, pb.location, pb.familiarity, pb.interestStrength, pc.durationSec, pc.turnCount,
+      pc.endedBy, fc.turnCount, pre.ios_pre, post.ios_post,
+      CSV_MEAN(pre, ['fscs_similar', 'fscs_connected']), CSV_MEAN(post, ['fscs_similar_post', 'fscs_connected_post']),
+      CSV_MEAN(pre, ['viv_clear', 'viv_tangible', 'viv_detail', 'viv_felt']),
+      CSV_MEAN(post, ['viv_clear_post', 'viv_tangible_post', 'viv_detail_post', 'viv_felt_post']),
+      post.mc_style, post.mc_scene, post.mc_understand].map(esc).join(',');
+  });
+  return cols.join(',') + '\n' + rows.join('\n') + '\n';
+}
+async function downloadCsv() {
+  const studies = await api('/api/admin/sessions/export');
+  const blob = new Blob([studiesToCsv(studies)], { type: 'text/csv' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = 'runs.csv'; a.click();
+  URL.revokeObjectURL(a.href);
+}
+
 function SessionDetail({ id, onClose }) {
   const [d, setD] = useState(null);
   const [err, setErr] = useState(null);
@@ -299,6 +333,7 @@ function SessionsView() {
         <button className="btn" onClick={load}>Refresh</button>
         <div className="spacer"></div>
         <button className="btn pri" onClick={() => setCreating(true)}>+ New session</button>
+        <button className="btn" onClick={() => downloadCsv().catch((e) => setErr(e.message))}>Export CSV (tidy)</button>
         <button className="btn" onClick={() => { location.href = '/api/admin/sessions/export'; }}>Export all (JSON)</button>
         <button className="btn" onClick={() => { location.href = '/api/admin/sessions/export?deidentify=1'; }}>Export de-identified</button>
       </div>
@@ -531,8 +566,8 @@ function DescriptivesView() {
       n: list.length,
       completed: list.filter((s) => s.meta && s.meta.completedAt).length,
       iosPre: m(pre.map((o) => o.ios_pre)), iosPost: m(post.map((o) => o.ios_post)),
-      fPre: m(perPerson(pre, ['fscs_similar', 'fscs_connected', 'fscs_care'])),
-      fPost: m(perPerson(post, ['fscs_similar_post', 'fscs_connected_post', 'fscs_care_post'])),
+      fPre: m(perPerson(pre, ['fscs_similar', 'fscs_connected'])),
+      fPost: m(perPerson(post, ['fscs_similar_post', 'fscs_connected_post'])),
       vPre: m(perPerson(pre, ['viv_clear', 'viv_tangible', 'viv_detail', 'viv_felt'])),
       vPost: m(perPerson(post, ['viv_clear_post', 'viv_tangible_post', 'viv_detail_post', 'viv_felt_post'])),
     };

@@ -11,7 +11,7 @@
 const { useState, useEffect, useRef } = React;
 
 const DEFAULT_TWEAKS = /*EDITMODE-BEGIN*/{
-  "theme": "light",
+  "theme": "dark",
   "accent": "#b5552f",
   "headlineFont": "serif"
 }/*EDITMODE-END*/;
@@ -122,8 +122,17 @@ function App() {
       return;
     }
     if (existing) { studyId.current = existing; return; } // admin-created participant link
-    apiCreateSession({ condition, rec, study, pid }).then((id) => { studyId.current = id; });
+    // No session row is created here: nothing is recorded before consent (§15).
   }, []); // once
+
+  // First write happens only after the participant agrees (§15: no data before
+  // consent). Admin-created links already carry an id; never create twice.
+  const beginAfterConsent = () => {
+    if (!studyId.current) {
+      apiCreateSession({ condition, rec, study, pid }).then((id) => { studyId.current = id; });
+    }
+    setScreen('avatar');
+  };
 
   // Persist progress locally so a dropped connection / refresh can resume.
   useEffect(() => {
@@ -147,8 +156,7 @@ function App() {
 
   const restart = () => {
     try { localStorage.removeItem(PROGRESS_KEY); } catch (e) {}
-    studyId.current = null;
-    apiCreateSession({ condition, rec, study, pid }).then((id) => { studyId.current = id; }); // fresh run = fresh session
+    studyId.current = null; // a fresh session row is created at the next consent (§15)
     setProfile({ name: '', color: tweaks.accent });
     setPreAnswers({}); setPhaseB(null); setPhaseC(null); setPostAnswers({});
     setFreeCont(null); phaseCSessionId.current = null;
@@ -197,7 +205,7 @@ function App() {
       {screen === 'landing' && <Landing onBegin={() => setScreen('consent')} />}
 
       {screen === 'consent' && (
-        <Consent onAgree={() => setScreen('avatar')} onBack={() => setScreen('landing')} />
+        <Consent onAgree={beginAfterConsent} onBack={() => setScreen('landing')} />
       )}
 
       {screen === 'avatar' && (
@@ -249,6 +257,7 @@ function App() {
 
       {screen === 'phaseb' && (
         <PhaseB profileData={baseProfile} rec={rec}
+          onAutosave={(tr) => apiSaveSession(studyId.current, { phaseB: { transcript: tr } })}
           onDone={(pb) => { setPhaseB(pb); apiSaveSession(studyId.current, { phaseB: pb }); setScreen('pause_bc'); }}
           onBack={() => setScreen('presurvey')} />
       )}
@@ -265,6 +274,7 @@ function App() {
       {screen === 'roleplay' && (
         <Chat profile={profile} condition={condition} profileData={fullProfile}
           phaseBNotes={phaseBNotesFrom(phaseB)} location={phaseB && phaseB.location} career={phaseB && phaseB.career}
+          onAutosave={(tr) => apiSaveSession(studyId.current, { phaseC: { transcript: tr } })}
           onComplete={(pc, sid) => {
             setPhaseC(pc); phaseCSessionId.current = sid;
             apiSaveSession(studyId.current, { phaseC: pc });
@@ -292,6 +302,7 @@ function App() {
 
       {screen === 'free' && (
         <FreeContinuation profile={profile} career={phaseB && phaseB.career} sessionId={phaseCSessionId.current}
+          onAutosave={(tr) => apiSaveSession(studyId.current, { freeContinuation: { transcript: tr } })}
           onDone={(fc) => { setFreeCont(fc); apiSaveSession(studyId.current, { freeContinuation: fc }); setScreen('done'); }} />
       )}
 
@@ -315,6 +326,16 @@ function App() {
       {testMode && <ThesisTweaks tweaks={tweaks} setTweak={setTweak} />}
       {/* Participant-facing comfort/accessibility control (always available). */}
       <ComfortSettings tweaks={tweaks} setTweak={setTweak} />
+      {/* Persistent "restart" chrome (§0): always available mid-run; warns that the
+          current attempt is left behind (still saved for the researcher). */}
+      {!['landing', 'launcher', 'resume_choice', 'done'].includes(screen) && (
+        <button className="restart-fab" title="Restart survey" onClick={() => {
+          const ok = typeof window.confirm === 'function'
+            ? window.confirm('Restart from the beginning? Your current attempt will be left behind (it stays saved for the researcher) and a fresh one starts.')
+            : true;
+          if (ok) restart();
+        }}>↻ Restart</button>
+      )}
     </div>
   );
 }
@@ -345,8 +366,8 @@ function Closure({ study, onRestart }) {
             you go from here stays entirely yours.
           </p>
           <p className="sv-intro" style={{ maxWidth: '46ch', margin: '0 auto 24px', color: 'var(--muted)' }}>
-            You're welcome to keep chatting with your future self on your own time — anything from here on
-            is just for you and isn't part of the study.
+            Your responses have been saved — thank you for taking part. If you opted in to a follow-up
+            interview, the researcher will reach out using the contact you left.
           </p>
           <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
             <button className="btn ghost" onClick={download}>

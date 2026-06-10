@@ -23,7 +23,9 @@ import math
 import sys
 import statistics as st
 
-FSCS_PRE = ["fscs_similar", "fscs_connected", "fscs_care"]
+# FSCS = the 2-item Ersner-Hershfield pictorial pair (similarity + connectedness);
+# continuity score = mean of the two (Build Plan §10.1e).
+FSCS_PRE = ["fscs_similar", "fscs_connected"]
 FSCS_POST = [i + "_post" for i in FSCS_PRE]
 VIV_PRE = ["viv_clear", "viv_tangible", "viv_detail", "viv_felt"]
 VIV_POST = [i + "_post" for i in VIV_PRE]

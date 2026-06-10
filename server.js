@@ -152,6 +152,16 @@ app.use((req, res, next) => {
   next();
 });
 
+// --- Health (deploy verification + uptime checks; Build Plan §13b) ---------
+app.get(['/healthz', '/api/health'], (req, res) => {
+  res.json({
+    ok: true,
+    model: MODEL,
+    provider: USE_PROXY ? 'uva-proxy' : 'anthropic',
+    db: dbEnabled,
+  });
+});
+
 // --- Phase B: shared recommendation guide ---------------------------------
 
 app.post('/api/phase-b/session', async (req, res) => {

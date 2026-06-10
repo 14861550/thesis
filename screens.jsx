@@ -312,7 +312,10 @@ function Pause({ title, lines = [], cta = 'Continue', eyebrow = 'Take a breath',
    COMFORT_DEFAULTS + the theme default; kept neutral here so nothing looks off.
    ============================================================ */
 const COMFORT_KEY = 'thesis_comfort_v1';
-const COMFORT_DEFAULTS = { size: 'sm', spacing: 'cozy', width: 'normal', motion: 'full' };
+// Defaults per Build Plan §0: text A++ / theme Dark / reading font Serif /
+// spacing Roomy / width Wide / motion Full (participants can change any of them;
+// the theme default lives in DEFAULT_TWEAKS in app.jsx).
+const COMFORT_DEFAULTS = { size: 'lg', spacing: 'roomy', width: 'wide', motion: 'full', font: 'serif' };
 
 function ComfortSettings({ tweaks, setTweak }) {
   const [open, setOpen] = React.useState(false);
@@ -323,7 +326,7 @@ function ComfortSettings({ tweaks, setTweak }) {
   React.useEffect(() => {
     const h = document.documentElement;
     h.dataset.size = c.size; h.dataset.spacing = c.spacing;
-    h.dataset.width = c.width; h.dataset.motion = c.motion;
+    h.dataset.width = c.width; h.dataset.motion = c.motion; h.dataset.font = c.font;
     try { localStorage.setItem(COMFORT_KEY, JSON.stringify(c)); } catch (e) {}
   }, [c]);
   const set = (k, v) => setC((prev) => ({ ...prev, [k]: v }));
@@ -352,6 +355,7 @@ function ComfortSettings({ tweaks, setTweak }) {
           <h4>Comfort &amp; display</h4>
           <Seg label="Text size" k="size" opts={[{ v: 'sm', l: 'A' }, { v: 'md', l: 'A+' }, { v: 'lg', l: 'A++' }, { v: 'xl', l: 'A+++' }]} />
           <Seg label="Theme" k="theme" opts={[{ v: 'light', l: 'Light' }, { v: 'dark', l: 'Dark' }]} />
+          <Seg label="Reading font" k="font" opts={[{ v: 'serif', l: 'Serif' }, { v: 'sans', l: 'Sans' }]} />
           <Seg label="Line spacing" k="spacing" opts={[{ v: 'cozy', l: 'Cozy' }, { v: 'roomy', l: 'Roomy' }]} />
           <Seg label="Reading width" k="width" opts={[{ v: 'narrow', l: 'Narrow' }, { v: 'normal', l: 'Default' }, { v: 'wide', l: 'Wide' }]} />
           <Seg label="Motion" k="motion" opts={[{ v: 'full', l: 'Full' }, { v: 'reduced', l: 'Reduced' }]} />

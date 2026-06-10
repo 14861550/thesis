@@ -10,8 +10,9 @@
 
 const PB_FAMILIARITY = { points: 7, left: 'Not at all familiar', right: 'Very familiar' };
 const PB_INTEREST = { points: 7, left: 'Not at all', right: 'Very strong' };
+const PB_REST_MIN = 20; // recurring rest hint cadence in stage B (§7 Screen 3)
 
-function PhaseB({ profileData, rec = 'guide', onDone, onBack }) {
+function PhaseB({ profileData, rec = 'guide', onDone, onBack, onAutosave }) {
   const { useState, useEffect, useRef } = React;
   const [messages, setMessages] = useState([]);
   const [booting, setBooting] = useState(true);
@@ -23,9 +24,19 @@ function PhaseB({ profileData, rec = 'guide', onDone, onBack }) {
   const [location, setLocation] = useState('');
   const [familiarity, setFamiliarity] = useState(undefined);
   const [interest, setInterest] = useState(undefined);
+  const [elapsedMin, setElapsedMin] = useState(0);
+  const [nextRest, setNextRest] = useState(PB_REST_MIN);
   const sessionId = useRef(null);
   const scrollRef = useRef(null);
   const lockRef = useRef(null);
+  const startedAt = useRef(Date.now());
+
+  const restDue = elapsedMin >= nextRest; // gentle, recurring, dismissible (§7)
+
+  useEffect(() => {
+    const t = setInterval(() => setElapsedMin((Date.now() - startedAt.current) / 60000), 5000);
+    return () => clearInterval(t);
+  }, []);
 
   useEffect(() => {
     const el = scrollRef.current; if (el) el.scrollTop = el.scrollHeight;
@@ -48,7 +59,7 @@ function PhaseB({ profileData, rec = 'guide', onDone, onBack }) {
         const { sessionId: sid, opening } = await postJSON('/api/phase-b/session', { profileData, rec });
         if (cancelled) return;
         sessionId.current = sid;
-        setMessages([{ role: 'guide', paras: splitParas(opening), id: 'g0' }]);
+        setMessages([{ role: 'guide', paras: splitParas(opening), id: 'g0', ts: new Date().toISOString() }]);
       } catch (e) {
         if (cancelled) return;
         setError("Couldn't reach the guide — make sure the server is running.");
@@ -60,11 +71,11 @@ function PhaseB({ profileData, rec = 'guide', onDone, onBack }) {
   const send = async (text) => {
     const t = text.trim();
     if (!t || pending || booting || !sessionId.current) return;
-    setMessages((p) => [...p, { role: 'user', text: t, id: `u${Date.now()}` }]);
+    setMessages((p) => [...p, { role: 'user', text: t, id: `u${Date.now()}`, ts: new Date().toISOString() }]);
     setDraft(''); setPending(true); setError(null);
     try {
       const { reply, recommendations } = await postJSON('/api/chat', { sessionId: sessionId.current, message: t });
-      setMessages((p) => [...p, { role: 'guide', paras: splitParas(reply), recommendations: recommendations || null, id: `g${Date.now()}` }]);
+      setMessages((p) => [...p, { role: 'guide', paras: splitParas(reply), recommendations: recommendations || null, id: `g${Date.now()}`, ts: new Date().toISOString() }]);
       // Only reveal the lock-in once the guide has actually proposed directions —
       // not after the first question (which felt premature in testing).
       if (recommendations && recommendations.length) setShowLock(true);
@@ -74,7 +85,7 @@ function PhaseB({ profileData, rec = 'guide', onDone, onBack }) {
   };
 
   const transcript = () => messages.map((m) => {
-    if (m.role === 'user') return { role: 'user', text: m.text };
+    if (m.role === 'user') return { role: 'user', text: m.text, ts: m.ts };
     let text = (m.paras || []).join('\n\n');
     if (m.recommendations && m.recommendations.length) {
       // Fold the structured cards back into the saved transcript so the record
@@ -83,8 +94,14 @@ function PhaseB({ profileData, rec = 'guide', onDone, onBack }) {
         .map((r, i) => `${i + 1}. ${r.title} — ${r.why}${r.path ? ` Path: ${r.path}` : ''}`)
         .join('\n');
     }
-    return { role: 'guide', text };
+    return { role: 'guide', text, ts: m.ts };
   });
+
+  // Per-turn durability (§13a): persist the stage-B transcript as it grows.
+  useEffect(() => {
+    if (!onAutosave || !messages.length) return;
+    onAutosave(transcript());
+  }, [messages]);
 
   // Selecting a recommendation card fills the lock-in choice.
   const chooseRec = (title) => { setCareer(title); setShowLock(true); };
@@ -106,7 +123,14 @@ function PhaseB({ profileData, rec = 'guide', onDone, onBack }) {
       <nav className="topnav">
         <div className="brand"><BrandMark size={22} /><span>Thesis</span></div>
         <div className="sv-eyebrow">Step 03 · Find a direction</div>
-        <div className="end"><button className="btn ghost sm" onClick={onBack}>Back</button></div>
+        <div className="end" style={{ display: 'flex', gap: 8 }}>
+          {/* Always reachable from the start — never gated (§16a). */}
+          <button className="btn ghost sm" onClick={() => {
+            setShowLock(true);
+            if (lockRef.current && lockRef.current.scrollIntoView) lockRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          }}>Choose your career →</button>
+          <button className="btn ghost sm" onClick={onBack}>Back</button>
+        </div>
       </nav>
 
       <div className="flow-body">
@@ -188,6 +212,12 @@ function PhaseB({ profileData, rec = 'guide', onDone, onBack }) {
 
       <div className="composer-wrap pb-composer">
         {error && <div className="composer-error">{error}</div>}
+        {restDue && (
+          <div className="time-note soft">
+            You've been exploring for a while — feel free to take a short breather, or keep going.
+            <button className="link-btn" onClick={() => setNextRest((n) => n + PB_REST_MIN)}>Keep going</button>
+          </div>
+        )}
         <div className="composer">
           <textarea rows={1} placeholder={booting ? 'Connecting…' : 'Reply to the guide…'}
             value={draft} disabled={booting}
