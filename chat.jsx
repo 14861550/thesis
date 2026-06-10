@@ -31,18 +31,22 @@ function splitParas(text) {
 }
 
 /* Render minimal inline markdown (**bold**, *italic*) so the model's emphasis
- * shows as formatting instead of distracting raw asterisks. Shared by both chats. */
+ * shows as formatting instead of distracting raw asterisks. Shared by both chats.
+ * The prompts now forbid markdown (v5.1 FORMAT lines); as belt-and-braces, any
+ * STRAY unpaired asterisks that still slip through are stripped from plain
+ * segments (raw * broke immersion in supervisor testing). */
 function renderRich(text) {
   const out = [];
   const re = /\*\*([^*]+)\*\*|\*([^*\n]+)\*/g;
+  const plain = (s) => s.replace(/\*+/g, '');
   let last = 0, m, k = 0;
   while ((m = re.exec(text)) !== null) {
-    if (m.index > last) out.push(text.slice(last, m.index));
+    if (m.index > last) out.push(plain(text.slice(last, m.index)));
     if (m[1] != null) out.push(<strong key={k++}>{m[1]}</strong>);
     else out.push(<em key={k++}>{m[2]}</em>);
     last = re.lastIndex;
   }
-  if (last < text.length) out.push(text.slice(last));
+  if (last < text.length) out.push(plain(text.slice(last)));
   return out;
 }
 

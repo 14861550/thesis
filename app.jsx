@@ -243,7 +243,12 @@ function App() {
             apiSaveSession(studyId.current, {
               profile,
               preSurvey: preAnswers,
-              scores: { bigFive: baseProfile.bigFive, riasec: baseProfile.riasec, values: baseProfile.values },
+              // Distal-outcome scores ride in `scores` but are NEVER part of the
+              // AI profile (Build Plan §10.1i/j: not fed to the model).
+              scores: {
+                bigFive: baseProfile.bigFive, riasec: baseProfile.riasec, values: baseProfile.values,
+                cdseSA_pre: scoreCdseSA(preAnswers), cipCCA_pre: scoreCipCCA(preAnswers),
+              },
             });
             setScreen('pause_ab');
           }}
@@ -299,7 +304,15 @@ function App() {
       {screen === 'postsurvey' && (
         <PostSurvey answers={postAnswers} onChange={setPost} career={phaseB && phaseB.career} study={study}
           onDone={() => {
-            apiSaveSession(studyId.current, { postSurvey: postAnswers, version: '3.0', finalize: true });
+            apiSaveSession(studyId.current, {
+              postSurvey: postAnswers,
+              scores: {
+                bigFive: baseProfile.bigFive, riasec: baseProfile.riasec, values: baseProfile.values,
+                cdseSA_pre: scoreCdseSA(preAnswers), cipCCA_pre: scoreCipCCA(preAnswers),
+                cdseSA_post: scoreCdseSA(postAnswers, '_post'), cipCCA_post: scoreCipCCA(postAnswers, '_post'),
+              },
+              version: '3.1', finalize: true,
+            });
             setScreen('free');
           }} />
       )}
@@ -313,10 +326,14 @@ function App() {
       {screen === 'done' && (
         <Closure
           study={{
-            meta: { condition, rec, study, pid, version: '3.0', completedAt: new Date().toISOString() },
+            meta: { condition, rec, study, pid, version: '3.1', completedAt: new Date().toISOString() },
             profile,
             preSurvey: preAnswers,
-            scores: { bigFive: baseProfile.bigFive, riasec: baseProfile.riasec, values: baseProfile.values },
+            scores: {
+              bigFive: baseProfile.bigFive, riasec: baseProfile.riasec, values: baseProfile.values,
+              cdseSA_pre: scoreCdseSA(preAnswers), cipCCA_pre: scoreCipCCA(preAnswers),
+              cdseSA_post: scoreCdseSA(postAnswers, '_post'), cipCCA_post: scoreCipCCA(postAnswers, '_post'),
+            },
             phaseB,
             phaseC,
             postSurvey: postAnswers,
@@ -365,9 +382,13 @@ function Closure({ study, onRestart }) {
         <div className="sv-wrap" style={{ textAlign: 'center' }}>
           <div className="eyebrow" style={{ justifyContent: 'center' }}><span className="dot" />All done</div>
           <h2 className="consent-title">Thank you</h2>
-          <p className="sv-intro" style={{ maxWidth: '46ch', margin: '0 auto 18px' }}>
+          <p className="sv-intro" style={{ maxWidth: '46ch', margin: '0 auto 14px' }}>
             That's the end of the study. Whatever your future self showed you, the decision about where
             you go from here stays entirely yours.
+          </p>
+          <p className="sv-intro" style={{ maxWidth: '46ch', margin: '0 auto 18px' }}>
+            What you met today is one possible future, built from your own answers — not a prediction,
+            and not a recommendation.
           </p>
           <p className="sv-intro" style={{ maxWidth: '46ch', margin: '0 auto 24px', color: 'var(--muted)' }}>
             Your responses have been saved — thank you for taking part. If you opted in to a follow-up

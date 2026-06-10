@@ -100,15 +100,15 @@ const ok = (msg) => console.log('✓ ' + msg);
   click(byText('Continue')); await tick();
   ok('Avatar set');
 
-  // 4. Pre-survey (5 pages)
-  for (let p = 0; p < 5; p++) {
+  // 4. Pre-survey (6 pages — v5.1: TIPI, values, RIASEC, future-self, CDSE+CIP, demographics)
+  for (let p = 0; p < 6; p++) {
     if (!window.document.querySelector('.sv-wrap')) fail(`Pre-survey page ${p + 1} missing`);
     autofillCurrent(); await tick();
     const btn = byText('Done') || byText('Continue');
     if (btn.disabled) fail(`Pre-survey page ${p + 1} did not validate (button disabled)`);
     click(btn); await tick();
   }
-  ok('Pre-survey completed (5 pages)');
+  ok('Pre-survey completed (6 pages)');
 
   // 4b. Pause A→B ("Take a breath") — advances only on Continue
   await tick();
@@ -150,15 +150,15 @@ const ok = (msg) => console.log('✓ ' + msg);
   click(byText('Continue')); await tick();
   ok('Pause C→POST advanced on Continue');
 
-  // 7. Post-survey (4 pages)
-  for (let p = 0; p < 4; p++) {
+  // 7. Post-survey (5 pages — v5.1: future-self, CDSE+CIP post, manip, 2 open-ended, opt-in)
+  for (let p = 0; p < 5; p++) {
     if (!window.document.querySelector('.sv-wrap')) fail(`Post-survey page ${p + 1} missing`);
     autofillCurrent(); await tick();
     const btn = byText('Done') || byText('Continue');
     if (btn.disabled) fail(`Post-survey page ${p + 1} did not validate`);
     click(btn); await tick();
   }
-  ok('Post-survey completed (4 pages)');
+  ok('Post-survey completed (5 pages)');
 
   // 7b. Free continuation (optional, logged separately) — finish to reach Closure
   await tick();

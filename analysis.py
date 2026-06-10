@@ -31,6 +31,32 @@ VIV_PRE = ["viv_clear", "viv_tangible", "viv_detail", "viv_felt"]
 VIV_POST = [i + "_post" for i in VIV_PRE]
 MANIP = ["mc_style", "mc_scene", "mc_understand"]
 
+# v5.1 distal outcomes (Build Plan §10.1i/j): CDSE-SF Self-Appraisal (1-5),
+# CIP-Short-5 Choice/Commitment-Anxiety (1-6; higher = MORE indecision).
+CDSE_PRE = [f"cdse_{i}" for i in range(1, 6)]
+CDSE_POST = [i + "_post" for i in CDSE_PRE]
+CIP_PRE = [f"cip_{i}" for i in range(1, 6)]
+CIP_POST = [i + "_post" for i in CIP_PRE]
+
+# TIPI (Gosling et al., 2003) — mirror of the app scoring (Build Plan §9):
+# reversed = 8 - raw; trait = mean of its two items, natively /7; ES not N.
+TIPI_KEY = {"E": [(1, False), (6, True)], "A": [(2, True), (7, False)],
+            "C": [(3, False), (8, True)], "ES": [(4, True), (9, False)],
+            "O": [(5, False), (10, True)]}
+
+
+def tipi_traits(resp):
+    out = {}
+    for trait, items in TIPI_KEY.items():
+        vals = []
+        for n, rev in items:
+            v = _num(resp.get(f"tipi_{n}"))
+            if v is not None:
+                vals.append(8 - v if rev else v)
+        if len(vals) == 2:
+            out[trait] = sum(vals) / 2
+    return out
+
 
 def _num(x):
     try:
@@ -122,6 +148,8 @@ def descriptives(studies):
             ("ios", None, None, True),
             ("fscs", FSCS_PRE, FSCS_POST, False),
             ("vividness", VIV_PRE, VIV_POST, False),
+            ("cdse_sa", CDSE_PRE, CDSE_POST, False),   # distal outcome, 1-5
+            ("cip_cca", CIP_PRE, CIP_POST, False),     # distal outcome, 1-6 (higher = more indecision)
         ]:
             pre, post, change = _outcome_series(group, pre_ids, post_ids, ios)
             row[name] = {
@@ -146,6 +174,8 @@ def effect_sizes(studies):
         ("ios", None, None, True),
         ("fscs", FSCS_PRE, FSCS_POST, False),
         ("vividness", VIV_PRE, VIV_POST, False),
+        ("cdse_sa", CDSE_PRE, CDSE_POST, False),
+        ("cip_cca", CIP_PRE, CIP_POST, False),
     ]:
         _, _, cm = _outcome_series(g["main"], pre_ids, post_ids, ios)
         _, _, cb = _outcome_series(g["baseline"], pre_ids, post_ids, ios)
@@ -153,11 +183,39 @@ def effect_sizes(studies):
     return res
 
 
+def inter_item_r(group, ids):
+    """Pearson r between two items (the 2-item-scale analogue of alpha)."""
+    if len(ids) != 2:
+        return None
+    pairs = []
+    for s in group:
+        resp = s.get("preSurvey") or {}
+        a, b = _num(resp.get(ids[0])), _num(resp.get(ids[1]))
+        if a is not None and b is not None:
+            pairs.append((a, b))
+    if len(pairs) < 3:
+        return None
+    xs, ys = [p[0] for p in pairs], [p[1] for p in pairs]
+    sx, sy = st.pstdev(xs), st.pstdev(ys)
+    if sx == 0 or sy == 0:
+        return None
+    mx, my = st.mean(xs), st.mean(ys)
+    cov = sum((x - mx) * (y - my) for x, y in pairs) / len(pairs)
+    return cov / (sx * sy)
+
+
 def reliability(studies):
     alls = [s for grp in _by_condition(studies).values() for s in grp]
     return {
-        "fscs_pre": cronbach_alpha(alls, FSCS_PRE),
-        "vividness_pre": cronbach_alpha(alls, VIV_PRE),
+        # alpha only for multi-item Likert scales (vividness, CDSE-SA, CIP-CCA).
+        "vividness_pre_alpha": cronbach_alpha(alls, VIV_PRE),
+        "cdse_sa_pre_alpha": cronbach_alpha(alls, CDSE_PRE),
+        "cip_cca_pre_alpha": cronbach_alpha(alls, CIP_PRE),
+        # 2-item scales: report the inter-item correlation instead of alpha.
+        "fscs_pre_inter_item_r": inter_item_r(alls, FSCS_PRE),
+        # TIPI traits are 2-item by design; Gosling et al. (2003) argue reliability
+        # from test-retest, not internal consistency - so no alpha here.
+        "tipi_note": "no alpha for 2-item TIPI traits (by design; see Gosling et al., 2003)",
     }
 
 
@@ -177,12 +235,54 @@ def lsm(studies):
             "note": "Linguistic Style Matching from transcripts — LIWC / PyLSM, time-permitting (Brief §4.4)"}
 
 
+def paired_prepost(studies):
+    """Whole-sample pre->post paired t per instrument (mediators + distal
+    outcomes). p-values use scipy when available; otherwise t + df are reported
+    and p is None (choose stats software - Brief §8)."""
+    try:
+        from scipy import stats as _sps  # optional
+    except Exception:
+        _sps = None
+    alls = [s for grp in _by_condition(studies).values() for s in grp]
+    out = {}
+    for name, pre_ids, post_ids, ios in [
+        ("ios", None, None, True),
+        ("fscs", FSCS_PRE, FSCS_POST, False),
+        ("vividness", VIV_PRE, VIV_POST, False),
+        ("cdse_sa", CDSE_PRE, CDSE_POST, False),
+        ("cip_cca", CIP_PRE, CIP_POST, False),
+    ]:
+        _, _, change = _outcome_series(alls, pre_ids, post_ids, ios)
+        n = len(change)
+        if n < 3:
+            out[name] = {"n": n, "note": "too few paired observations"}
+            continue
+        md, sd = st.mean(change), st.stdev(change)
+        t = md / (sd / math.sqrt(n)) if sd > 0 else None
+        p = float(2 * _sps.t.sf(abs(t), n - 1)) if (_sps and t is not None) else None
+        out[name] = {"n": n, "mean_change": md, "sd_change": sd, "t": t, "df": n - 1,
+                     "p": p if p is not None else "install scipy for p-values"}
+    return out
+
+
+def sample_tipi(studies):
+    """Whole-sample TIPI trait means (sample description; mirrors app scoring)."""
+    alls = [s for grp in _by_condition(studies).values() for s in grp]
+    acc = {}
+    for s in alls:
+        for k, v in tipi_traits(s.get("preSurvey") or {}).items():
+            acc.setdefault(k, []).append(v)
+    return {k: st.mean(v) for k, v in acc.items() if v}
+
+
 def run_all(studies):
     return {
         "n_total": len(studies),
         "descriptives": descriptives(studies),
         "effect_sizes": effect_sizes(studies),
-        "reliability_cronbach_alpha": reliability(studies),
+        "paired_prepost_whole_sample": paired_prepost(studies),
+        "reliability": reliability(studies),
+        "sample_tipi_trait_means": sample_tipi(studies),
         "ttest_change": ttest_change(studies),
         "ancova": ancova(studies),
         "lsm": lsm(studies),

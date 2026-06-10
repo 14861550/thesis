@@ -172,7 +172,9 @@ function studiesToCsv(studies) {
   const cols = ['session_id', 'pid', 'study', 'rec', 'cond', 'status', 'created_at', 'completed_at',
     'career', 'location', 'familiarity', 'interest_strength', 'c_duration_sec', 'c_turns',
     'c_ended_by', 'free_turns', 'ios_pre', 'ios_post', 'fscs_pre_mean', 'fscs_post_mean',
-    'viv_pre_mean', 'viv_post_mean', 'mc_style', 'mc_scene', 'mc_understand'];
+    'viv_pre_mean', 'viv_post_mean',
+    'cdse_sa_pre_mean', 'cdse_sa_post_mean', 'cip_cca_pre_mean', 'cip_cca_post_mean',
+    'mc_style', 'mc_scene', 'mc_understand'];
   const esc = (x) => { const s = x == null ? '' : String(x); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
   const rows = studies.map((s) => {
     const meta = s.meta || {}, pb = s.phaseB || {}, pc = s.phaseC || {}, fc = s.freeContinuation || {};
@@ -184,6 +186,10 @@ function studiesToCsv(studies) {
       CSV_MEAN(pre, ['fscs_similar', 'fscs_connected']), CSV_MEAN(post, ['fscs_similar_post', 'fscs_connected_post']),
       CSV_MEAN(pre, ['viv_clear', 'viv_tangible', 'viv_detail', 'viv_felt']),
       CSV_MEAN(post, ['viv_clear_post', 'viv_tangible_post', 'viv_detail_post', 'viv_felt_post']),
+      CSV_MEAN(pre, ['cdse_1', 'cdse_2', 'cdse_3', 'cdse_4', 'cdse_5']),
+      CSV_MEAN(post, ['cdse_1_post', 'cdse_2_post', 'cdse_3_post', 'cdse_4_post', 'cdse_5_post']),
+      CSV_MEAN(pre, ['cip_1', 'cip_2', 'cip_3', 'cip_4', 'cip_5']),
+      CSV_MEAN(post, ['cip_1_post', 'cip_2_post', 'cip_3_post', 'cip_4_post', 'cip_5_post']),
       post.mc_style, post.mc_scene, post.mc_understand].map(esc).join(',');
   });
   return cols.join(',') + '\n' + rows.join('\n') + '\n';
@@ -570,6 +576,11 @@ function DescriptivesView() {
       fPost: m(perPerson(post, ['fscs_similar_post', 'fscs_connected_post'])),
       vPre: m(perPerson(pre, ['viv_clear', 'viv_tangible', 'viv_detail', 'viv_felt'])),
       vPost: m(perPerson(post, ['viv_clear_post', 'viv_tangible_post', 'viv_detail_post', 'viv_felt_post'])),
+      // v5.1 distal outcomes — note the native ranges (CDSE /5, CIP /6).
+      cdPre: m(perPerson(pre, ['cdse_1', 'cdse_2', 'cdse_3', 'cdse_4', 'cdse_5'])),
+      cdPost: m(perPerson(post, ['cdse_1_post', 'cdse_2_post', 'cdse_3_post', 'cdse_4_post', 'cdse_5_post'])),
+      ciPre: m(perPerson(pre, ['cip_1', 'cip_2', 'cip_3', 'cip_4', 'cip_5'])),
+      ciPost: m(perPerson(post, ['cip_1_post', 'cip_2_post', 'cip_3_post', 'cip_4_post', 'cip_5_post'])),
     };
   };
   const conds = Object.keys(groups).sort();
@@ -577,7 +588,7 @@ function DescriptivesView() {
     <div>
       <div className="note">Live per-condition descriptives (Build Plan §14). Means over stored responses; Δ = post − pre. Descriptive only — t-test / ANCOVA / Cronbach's α are phase 2 (run <b>analysis.py</b> on the exported data).</div>
       <table>
-        <thead><tr><th>Condition</th><th>N</th><th>Completed</th><th>IOS pre → post (Δ)</th><th>FSCS pre → post (Δ)</th><th>Vividness pre → post (Δ)</th></tr></thead>
+        <thead><tr><th>Condition</th><th>N</th><th>Completed</th><th>IOS pre → post (Δ) /7</th><th>FSCS pre → post (Δ) /7</th><th>Vividness pre → post (Δ) /7</th><th>CDSE-SA pre → post (Δ) /5</th><th>CIP-CCA pre → post (Δ) /6</th></tr></thead>
         <tbody>
           {conds.map((c) => { const s = stat(groups[c]); return (
             <tr key={c}>
@@ -585,9 +596,11 @@ function DescriptivesView() {
               <td>{f2(s.iosPre)} → {f2(s.iosPost)} <span className="muted">({d2(s.iosPre, s.iosPost)})</span></td>
               <td>{f2(s.fPre)} → {f2(s.fPost)} <span className="muted">({d2(s.fPre, s.fPost)})</span></td>
               <td>{f2(s.vPre)} → {f2(s.vPost)} <span className="muted">({d2(s.vPre, s.vPost)})</span></td>
+              <td>{f2(s.cdPre)} → {f2(s.cdPost)} <span className="muted">({d2(s.cdPre, s.cdPost)})</span></td>
+              <td>{f2(s.ciPre)} → {f2(s.ciPost)} <span className="muted">({d2(s.ciPre, s.ciPost)})</span></td>
             </tr>
           ); })}
-          {!conds.length && <tr><td colSpan="6" className="muted">No sessions yet.</td></tr>}
+          {!conds.length && <tr><td colSpan="8" className="muted">No sessions yet.</td></tr>}
         </tbody>
       </table>
     </div>

@@ -16,31 +16,30 @@
 
 // --- Instrument definitions ------------------------------------------------
 
-// Personality — Mini-IPIP (Donnellan et al., 2006; IPIP items, public domain).
-// 20 items, 4 per trait, 5-point accuracy. (R) = reverse-keyed (Build Plan §10.1a.)
-const MINIIPIP = [
-  { id: 'mip_e1', text: 'I am the life of the party.', trait: 'E', reverse: false },
-  { id: 'mip_a1', text: "I sympathize with others' feelings.", trait: 'A', reverse: false },
-  { id: 'mip_c1', text: 'I get chores done right away.', trait: 'C', reverse: false },
-  { id: 'mip_n1', text: 'I have frequent mood swings.', trait: 'N', reverse: false },
-  { id: 'mip_o1', text: 'I have a vivid imagination.', trait: 'O', reverse: false },
-  { id: 'mip_e2', text: 'I talk to a lot of different people at parties.', trait: 'E', reverse: false },
-  { id: 'mip_a2', text: "I feel others' emotions.", trait: 'A', reverse: false },
-  { id: 'mip_c2', text: 'I like order.', trait: 'C', reverse: false },
-  { id: 'mip_n2', text: 'I get upset easily.', trait: 'N', reverse: false },
-  { id: 'mip_o2', text: 'I have difficulty understanding abstract ideas.', trait: 'O', reverse: true },
-  { id: 'mip_e3', text: "I don't talk a lot.", trait: 'E', reverse: true },
-  { id: 'mip_a3', text: 'I am not really interested in others.', trait: 'A', reverse: true },
-  { id: 'mip_c3', text: 'I often forget to put things back in their proper place.', trait: 'C', reverse: true },
-  { id: 'mip_n3', text: 'I am relaxed most of the time.', trait: 'N', reverse: true },
-  { id: 'mip_o3', text: 'I am not interested in abstract ideas.', trait: 'O', reverse: true },
-  { id: 'mip_e4', text: 'I keep in the background.', trait: 'E', reverse: true },
-  { id: 'mip_a4', text: "I am not interested in other people's problems.", trait: 'A', reverse: true },
-  { id: 'mip_c4', text: 'I make a mess of things.', trait: 'C', reverse: true },
-  { id: 'mip_n4', text: 'I seldom feel blue.', trait: 'N', reverse: true },
-  { id: 'mip_o4', text: 'I do not have a good imagination.', trait: 'O', reverse: true },
+// Personality — TIPI, Ten-Item Personality Inventory (Gosling, Rentfrow & Swann,
+// 2003; free for research use). 10 items, 2 per trait (one reversed each),
+// administered with the ORIGINAL instruction + 7 labelled anchors (Build Plan
+// §10.1a — original-instruments rule). Stem: "I see myself as:". Scoring §9:
+// reversed = 8 − raw; trait = mean of its 2 items, natively /7. The fourth
+// dimension is Emotional Stability (TIPI's native direction), not Neuroticism.
+const TIPI_INSTRUCTION = 'Here are a number of personality traits that may or may not apply to you. Please indicate the extent to which you agree or disagree with that statement. You should rate the extent to which the pair of traits applies to you, even if one characteristic applies more strongly than the other.';
+const TIPI = [
+  { id: 'tipi_1', text: 'Extraverted, enthusiastic.', trait: 'E', reverse: false },
+  { id: 'tipi_2', text: 'Critical, quarrelsome.', trait: 'A', reverse: true },
+  { id: 'tipi_3', text: 'Dependable, self-disciplined.', trait: 'C', reverse: false },
+  { id: 'tipi_4', text: 'Anxious, easily upset.', trait: 'ES', reverse: true },
+  { id: 'tipi_5', text: 'Open to new experiences, complex.', trait: 'O', reverse: false },
+  { id: 'tipi_6', text: 'Reserved, quiet.', trait: 'E', reverse: true },
+  { id: 'tipi_7', text: 'Sympathetic, warm.', trait: 'A', reverse: false },
+  { id: 'tipi_8', text: 'Disorganized, careless.', trait: 'C', reverse: true },
+  { id: 'tipi_9', text: 'Calm, emotionally stable.', trait: 'ES', reverse: false },
+  { id: 'tipi_10', text: 'Conventional, uncreative.', trait: 'O', reverse: true },
 ];
-const MIP_SCALE = { points: 5, left: 'Very inaccurate', right: 'Very accurate' };
+const TIPI_SCALE = {
+  points: 7, left: 'Disagree strongly', right: 'Agree strongly',
+  anchors: ['1 = Disagree strongly', '2 = Disagree moderately', '3 = Disagree a little',
+    '4 = Neither agree nor disagree', '5 = Agree a little', '6 = Agree moderately', '7 = Agree strongly'],
+};
 
 // Work values — O*NET Work Values (US DOL; public domain). 6 items, rated 1–7
 // for importance; the top 3 are fed to the AI (Build Plan §10.1b). [FLAG] this
@@ -89,12 +88,48 @@ const MANIPULATION = [
   { id: 'mc_scene', text: 'My future self described their life through specific, concrete moments rather than vague generalities.' },
   { id: 'mc_understand', text: 'My future self seemed to genuinely understand my current situation and who I am.' },
 ];
+// Open-ended — exactly 2 (supervisor instruction, Build Plan §10.2). Dropped:
+// "did the voice remind you of yourself" (redundant with manipulation check 1)
+// and "what shifted in how you picture yourself" (carried by CDSE/CIP).
 const OPEN_ENDED = [
   { id: 'oe_real', text: 'Which moment in the conversation made you most feel this was genuinely your future self? What made it feel real?' },
   { id: 'oe_broke', text: 'Was there any moment that broke the feeling — that made the future self feel fake, generic, or off? What happened?' },
-  { id: 'oe_voice', text: 'Did the way your future self spoke remind you of yourself? In what way, or why not?' },
-  { id: 'oe_shift', text: 'After this conversation, has anything shifted in how you picture yourself in this career 10 years from now?' },
 ];
+
+// Distal outcome 1 — Career decision self-efficacy: CDSE-SF Self-Appraisal
+// subscale (Betz, Klein & Taylor, 1996). Pre AND post; original stem + 5-level
+// confidence scale verbatim. NOT fed to the AI. [VERIFY] all five items against
+// the licensed instrument (Mind Garden) before fielding (Build Plan §10.1i).
+const CDSE_STEM = 'How much confidence do you have that you could:';
+const CDSE_SA_ITEMS = [
+  { id: 'cdse_1', text: 'Accurately assess your abilities.' },
+  { id: 'cdse_2', text: 'Determine what your ideal job would be.' },
+  { id: 'cdse_3', text: 'Decide what you value most in an occupation.' },
+  { id: 'cdse_4', text: 'Figure out what you are and are not ready to sacrifice to achieve your career goals.' },
+  { id: 'cdse_5', text: 'Define the type of lifestyle you would like to live.' },
+];
+const CDSE_SCALE = {
+  points: 5, left: 'No confidence at all', right: 'Complete confidence',
+  anchors: ['1 = No confidence at all', '2 = Very little confidence', '3 = Moderate confidence',
+    '4 = Much confidence', '5 = Complete confidence'],
+};
+
+// Distal outcome 2 — Career indecision: CIP-Short-5, Choice/Commitment-Anxiety
+// subscale (Xu & He, 2022). Pre AND post; original 6-point scale (higher = more
+// indecision). NOT fed to the AI. [VERIFY — BLOCKING] three items below are
+// placeholders until the exact five CCA items are copied verbatim from
+// Xu & He (2022), J. Career Assessment 30(4) — see Build Plan §10.1j.
+const CIP_CCA_ITEMS = [
+  { id: 'cip_1', text: 'I often feel nervous when thinking about choosing a career.' },
+  { id: 'cip_2', text: 'I am reluctant to commit myself to a particular career direction.' },
+  { id: 'cip_3', text: '[PENDING — insert verbatim from Xu & He (2022)]' },
+  { id: 'cip_4', text: '[PENDING — insert verbatim from Xu & He (2022)]' },
+  { id: 'cip_5', text: '[PENDING — insert verbatim from Xu & He (2022)]' },
+];
+const CIP_SCALE = { points: 6, left: 'Complete disagreement', right: 'Strong agreement' };
+if (CIP_CCA_ITEMS.some((i) => i.text.includes('PENDING'))) {
+  console.warn('[CIP-CCA] Placeholder items present — the study is NOT fieldable until the five verbatim items from Xu & He (2022) are inserted into CIP_CCA_ITEMS.');
+}
 
 // --- Field renderers -------------------------------------------------------
 
@@ -125,6 +160,11 @@ function ScaleRow({ id, text, scale, value, onChange }) {
 function LikertGrid({ items, scale, prefix, answers, onChange }) {
   return (
     <div className="sv-grid">
+      {/* Original-instruments rule (§16): when a scale defines verbatim anchor
+          labels (TIPI 7, CDSE-SA 5), show the full legend once for the block. */}
+      {scale.anchors && (
+        <div className="sv-anchors">{scale.anchors.join('   ·   ')}</div>
+      )}
       {items.map((it) => (
         <ScaleRow
           key={it.id}
@@ -281,9 +321,14 @@ function buildPreSections(answers, onChange) {
     },
     {
       title: 'How you see yourself',
-      intro: 'How accurately do the following statements describe you, compared with other people you know of the same age? Rate each.',
-      ids: MINIIPIP.map((i) => i.id),
-      node: <LikertGrid items={MINIIPIP} scale={MIP_SCALE} answers={answers} onChange={set} />,
+      intro: TIPI_INSTRUCTION,
+      ids: TIPI.map((i) => i.id),
+      node: (
+        <div className="sv-section">
+          <p className="sv-stem">I see myself as:</p>
+          <LikertGrid items={TIPI} scale={TIPI_SCALE} answers={answers} onChange={set} />
+        </div>
+      ),
     },
     {
       title: 'What matters in work',
@@ -299,7 +344,7 @@ function buildPreSections(answers, onChange) {
     },
     {
       title: 'Your future self, today',
-      intro: "By “your future self” we mean the version of you about 10 years from now. These questions capture how you picture that person today — you'll answer the same ones again after the conversation, so we can see what shifts.",
+      intro: "The next questions are about your future self — the person you will be about 10 years from now. These questions capture how you picture that person today; you'll answer the same ones again after the conversation, so we can see what shifts.",
       ids: ['ios_pre', ...FSCS.map((i) => i.id), ...VIVIDNESS.map((i) => i.id)],
       node: (
         <div className="sv-section">
@@ -309,6 +354,19 @@ function buildPreSections(answers, onChange) {
               value={answers[it.id]} onChange={set} />
           ))}
           <LikertGrid items={VIVIDNESS} scale={AGREE7} answers={answers} onChange={set} />
+        </div>
+      ),
+    },
+    {
+      title: 'Your career decision',
+      intro: "Two short sets of questions about where you stand with career decisions right now — you'll answer these again after the conversation.",
+      ids: [...CDSE_SA_ITEMS.map((i) => i.id), ...CIP_CCA_ITEMS.map((i) => i.id)],
+      node: (
+        <div className="sv-section">
+          <p className="sv-stem">{CDSE_STEM}</p>
+          <LikertGrid items={CDSE_SA_ITEMS} scale={CDSE_SCALE} answers={answers} onChange={set} />
+          <p className="sv-stem" style={{ marginTop: 18 }}>How much do you agree with each statement?</p>
+          <LikertGrid items={CIP_CCA_ITEMS} scale={CIP_SCALE} answers={answers} onChange={set} />
         </div>
       ),
     },
@@ -333,6 +391,21 @@ function buildPostSections(answers, onChange, career, study = 'kangzhi') {
               value={answers[it.id]} onChange={set} />
           ))}
           <LikertGrid items={vivPost} scale={AGREE7} answers={answers} onChange={set} />
+        </div>
+      ),
+    },
+    {
+      title: 'Your career decision, now',
+      intro: 'The same two short sets as before — answer for how you feel right now.',
+      ids: [...CDSE_SA_ITEMS, ...CIP_CCA_ITEMS].map((i) => i.id + '_post'),
+      node: (
+        <div className="sv-section">
+          <p className="sv-stem">{CDSE_STEM}</p>
+          <LikertGrid items={CDSE_SA_ITEMS.map((i) => ({ ...i, id: i.id + '_post' }))}
+            scale={CDSE_SCALE} answers={answers} onChange={set} />
+          <p className="sv-stem" style={{ marginTop: 18 }}>How much do you agree with each statement?</p>
+          <LikertGrid items={CIP_CCA_ITEMS.map((i) => ({ ...i, id: i.id + '_post' }))}
+            scale={CIP_SCALE} answers={answers} onChange={set} />
         </div>
       ),
     },
@@ -362,8 +435,8 @@ function buildPostSections(answers, onChange, career, study = 'kangzhi') {
     // Plan §10.2). Ships disabled until her CDSE-SF + agency/closeness items are
     // confirmed; routing already supports her conditions.
     ...(study === 'andrea' ? [{
-      title: 'Your career decision',
-      intro: 'A few questions about how you feel about choosing your path.',
+      title: 'A few more questions',
+      intro: 'About how you feel about choosing your path.',
       ids: [],
       node: (
         <div className="sv-section">
@@ -461,16 +534,28 @@ function PostSurvey({ answers, onChange, onDone, career, study }) {
 
 // --- Scoring + export helpers (used by app.jsx) ----------------------------
 
+// TIPI scoring (Build Plan §9): reversed = 8 − raw; trait = mean of its 2 items,
+// natively on the 1–7 scale (no rescaling). Fourth dimension = Emotional Stability.
 function scoreBigFive(a) {
-  const rev = (x) => 6 - x;
+  const rev = (x) => 8 - x;
   const out = {};
-  for (const t of ['O', 'C', 'E', 'A', 'N']) {
-    const items = MINIIPIP.filter((i) => i.trait === t);
+  for (const t of ['O', 'C', 'E', 'A', 'ES']) {
+    const items = TIPI.filter((i) => i.trait === t);
     const vals = items.map((i) => (i.reverse ? rev(Number(a[i.id])) : Number(a[i.id])));
     if (vals.every((v) => !Number.isNaN(v))) out[t] = vals.reduce((s, v) => s + v, 0) / vals.length;
   }
   return out;
 }
+
+/** Mean of a 5-item distal-outcome scale; suffix '' (pre) or '_post'. */
+function scaleMean(a, items, suffix = '') {
+  const vals = items.map((i) => Number(a[i.id + suffix])).filter((v) => !Number.isNaN(v));
+  return vals.length === items.length
+    ? Math.round((vals.reduce((s, v) => s + v, 0) / vals.length) * 100) / 100
+    : null;
+}
+const scoreCdseSA = (a, suffix = '') => scaleMean(a, CDSE_SA_ITEMS, suffix);  // 1–5
+const scoreCipCCA = (a, suffix = '') => scaleMean(a, CIP_CCA_ITEMS, suffix);  // 1–6
 function scoreRiasec(a) {
   const out = {};
   for (const i of RIASEC) { const v = Number(a[i.id]); if (!Number.isNaN(v)) out[i.key] = v; }
@@ -502,4 +587,5 @@ function buildProfileData(pre) {
 Object.assign(window, {
   ScaleRow, LikertGrid, CirclesField, IOSField, ChoiceField, MultiField,
   PreSurvey, PostSurvey, buildProfileData, scoreBigFive, scoreRiasec,
+  scoreCdseSA, scoreCipCCA,
 });

@@ -38,15 +38,15 @@ function Landing({ onBegin }) {
         </div>
         <div className="hero-foot">
           <span className="pill">~ 50–60 minute session</span>
-          <span className="pill">A role-play, not a recommendation</span>
+          <span className="pill">A conversation with your future self</span>
         </div>
       </section>
 
       <section className="howit" id="how">
         <h2>How a session works</h2>
         <p className="lede">
-          Three short steps, then a conversation. Before the chat, you answer some
-          questions to make the future self sound specifically like you.
+          Three short steps, then a conversation. Before the chat, you'll answer some
+          questions about yourself and how you see your future.
         </p>
         <div className="steps">
           <div className="step">
@@ -64,8 +64,8 @@ function Landing({ onBegin }) {
           <div className="step">
             <span className="num">STEP 03</span>
             <h3>Have the conversation</h3>
-            <p>Talk with yourself, ten years on, working in that career. Your future self
-              speaks in scenes, not summaries — and won't tell you what to do.</p>
+            <p>Talk with yourself, ten years on, working in that career. The future self
+              will speak in scenes, not summaries — and it won't tell you what to do.</p>
           </div>
         </div>
       </section>
