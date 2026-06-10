@@ -15,7 +15,7 @@ before (in-memory sessions, JSON download at the end).
 
 ```
 Browser (no-build React .jsx)                Express (server.js, ESM)
-  app/chat/phaseb/survey/screens   ──HTTP──▶  /api/phase-b|c/session, /api/chat   → Anthropic (claude-sonnet-4-6)
+  app/chat/phaseb/survey/screens   ──HTTP──▶  /api/phase-b|c/session, /api/chat   → UvA proxy (gpt-5.1, default) | Anthropic (fallback)
                                               /api/sessions (POST/GET/PATCH)       → Postgres (lib/sessions.js)
   admin/index.html (dashboard)     ──HTTP──▶  /admin (gated), /api/admin/*         → Postgres
                                               /api/admin/eval-runs                 → spawns Python (lib/eval_runner.js)
@@ -44,7 +44,9 @@ the metrics code is reused unchanged.
 
 | Var | Required | Purpose |
 |-----|----------|---------|
-| `ANTHROPIC_API_KEY` | yes (chat) | Claude API key (server-side only) |
+| `LLM_BASE_URL` + `UVA_API_TOKEN` | study default (chat) | OpenAI-compatible proxy for the participant chat (UvA: `https://llmproxy.uva.nl/v1`, model `gpt-5.1`); both set → proxy is used |
+| `MODEL_ID` | optional | Override the chat model id (default `gpt-5.1` on the proxy, `claude-sonnet-4-6` on the fallback) |
+| `ANTHROPIC_API_KEY` | fallback chat + eval | Used for chat only when the proxy vars are unset; always used by the eval pipeline / silicon runs |
 | `DATABASE_URL` | optional | Postgres. Unset → in-memory mode, admin disabled |
 | `ADMIN_TOKEN` | optional | Shared secret gating `/admin`. Unset → admin disabled (503) |
 | `RESULTS_TOKEN` | optional | Read-only share link for `/results` (anonymized). Unset → `/results` falls back to `ADMIN_TOKEN` |
@@ -68,7 +70,9 @@ npm run db:up               # start local Postgres (docker compose, host port 54
 npm start                   # http://localhost:3000  (schema auto-applies on boot)
 ```
 
-- **Participant app:** `/` (optionally `?condition=main|baseline`, `?session=<id>`).
+- **Participant app:** `/` — condition axes from the URL:
+  `?study=kangzhi|andrea&rec=guide|reflective|direct&cond=main|baseline&pid=K017`
+  (plus `?session=<id>` for admin-minted links and `?test=1` for the researcher launcher).
 - **Admin dashboard:** `/admin` → enter `ADMIN_TOKEN`.
 
 > Local Postgres uses host port **5433** to avoid clashing with a system Postgres
@@ -153,9 +157,11 @@ at this scale.
 2. **Postgres:** add a Railway Postgres plugin and set the service variable
    `DATABASE_URL = ${{Postgres.DATABASE_URL}}` (private network; SSL handled
    automatically for remote hosts).
-3. **Env:** set `ANTHROPIC_API_KEY`, `ADMIN_TOKEN` (long random), `RESULTS_TOKEN`
-   (long random, distinct — the read-only supervisor link), and optionally
-   `PYTHON_BIN=python3`. Do **not** set `PORT` (Railway injects it).
+3. **Env:** set `LLM_BASE_URL` + `UVA_API_TOKEN` (+ `MODEL_ID=gpt-5.1`) for the
+   study chat — or `ANTHROPIC_API_KEY` as the fallback (also needed for eval
+   runs); `ADMIN_TOKEN` (long random), `RESULTS_TOKEN` (long random, distinct —
+   the read-only supervisor link), and optionally `PYTHON_BIN=python3`. Do
+   **not** set `PORT` (Railway injects it). Verify `/healthz` after deploy.
 4. Deploys are triggered by pushing to the connected GitHub repo; the schema
    (incl. the new `simulations` table) applies itself on boot.
 
@@ -187,7 +193,6 @@ PYTHONHASHSEED=0 python -m pytest eval_pipeline/tests -q   # 87 pipeline tests
 
 ## Limitations
 - Single shared-secret admin (no roles/audit).
-- Phase-C autosave is per-phase (at chat finish), not per-message.
 - Eval runs execute in-process (fire-and-forget) — no queue; fine for a few
   concurrent runs, not high throughput.
 - `judge-model selection` as an eval IV depends on multiple models being
