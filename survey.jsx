@@ -289,7 +289,7 @@ function buildPreSections(answers, onChange) {
   ];
 }
 
-function buildPostSections(answers, onChange, career) {
+function buildPostSections(answers, onChange, career, study = 'kangzhi') {
   const set = (id, v) => onChange(id, v);
   // Post future-self items reuse the SAME ids as pre but with a "_post" suffix.
   const fscsPost = FSCS.map((i) => ({ ...i, id: i.id + '_post' }));
@@ -329,6 +329,22 @@ function buildPostSections(answers, onChange, career) {
         </div>
       ),
     },
+    // Andrea's DV battery — labelled placeholder, only for study=andrea (Build
+    // Plan §10.2). Ships disabled until her CDSE-SF + agency/closeness items are
+    // confirmed; routing already supports her conditions.
+    ...(study === 'andrea' ? [{
+      title: 'Your career decision',
+      intro: 'A few questions about how you feel about choosing your path.',
+      ids: [],
+      node: (
+        <div className="sv-section">
+          <p className="sv-hint">
+            (Reserved for Andrea's dependent-variable battery — career-decision self-efficacy
+            (CDSE-SF) and agency/closeness. Disabled in this build until the items are confirmed.)
+          </p>
+        </div>
+      ),
+    }] : []),
     {
       title: 'One last thing',
       intro: 'Optional.',
@@ -402,10 +418,10 @@ function PreSurvey({ answers, onChange, onDone, onBack }) {
   );
 }
 
-function PostSurvey({ answers, onChange, onDone, career }) {
+function PostSurvey({ answers, onChange, onDone, career, study }) {
   return (
     <PagedSurvey eyebrow="Final step · Reflection"
-      sections={buildPostSections(answers, onChange, career)}
+      sections={buildPostSections(answers, onChange, career, study)}
       answers={answers} onChange={onChange} onDone={onDone} />
   );
 }

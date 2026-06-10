@@ -87,6 +87,7 @@ function App() {
   const [phaseC, setPhaseC] = useState(null);     // { transcript, durationSec, turnCount, ... }
   const [postAnswers, setPostAnswers] = useState({});
   const [freeCont, setFreeCont] = useState(null); // free continuation (logged separately)
+  const [pendingSnap, setPendingSnap] = useState(null); // saved snapshot awaiting resume-or-restart
   const phaseCSessionId = useRef(null);           // reused so free continuation = same convo
 
   useEffect(() => {
@@ -112,14 +113,12 @@ function App() {
     try { snap = JSON.parse(localStorage.getItem(PROGRESS_KEY) || 'null'); } catch (e) {}
     const existing = readSessionParam();
     if (snap && snap.screen && snap.screen !== 'landing' && snap.screen !== 'done') {
+      // Offer an explicit resume-or-restart choice (Build Plan §13a) rather than
+      // silently restoring — the participant decides to continue or start fresh.
       if (snap.studyId) studyId.current = snap.studyId;
       else if (existing) studyId.current = existing;
-      if (snap.profile) setProfile(snap.profile);
-      if (snap.preAnswers) setPreAnswers(snap.preAnswers);
-      if (snap.phaseB) setPhaseB(snap.phaseB);
-      if (snap.phaseC) setPhaseC(snap.phaseC);
-      if (snap.postAnswers) setPostAnswers(snap.postAnswers);
-      setScreen(snap.screen);
+      setPendingSnap(snap);
+      setScreen('resume_choice');
       return;
     }
     if (existing) { studyId.current = existing; return; } // admin-created participant link
@@ -128,7 +127,7 @@ function App() {
 
   // Persist progress locally so a dropped connection / refresh can resume.
   useEffect(() => {
-    if (screen === 'landing') return;
+    if (screen === 'landing' || screen === 'resume_choice') return;
     try {
       if (screen === 'done') { localStorage.removeItem(PROGRESS_KEY); return; }
       localStorage.setItem(PROGRESS_KEY, JSON.stringify({
@@ -156,8 +155,40 @@ function App() {
     setScreen('landing');
   };
 
+  // Resume-or-restart (Build Plan §13a): restore the saved snapshot, or start fresh.
+  const resumeRun = () => {
+    const s = pendingSnap || {};
+    if (s.profile) setProfile(s.profile);
+    if (s.preAnswers) setPreAnswers(s.preAnswers);
+    if (s.phaseB) setPhaseB(s.phaseB);
+    if (s.phaseC) setPhaseC(s.phaseC);
+    if (s.postAnswers) setPostAnswers(s.postAnswers);
+    setPendingSnap(null);
+    setScreen(s.screen || 'landing');
+  };
+  const startOver = () => { setPendingSnap(null); restart(); };
+
   return (
     <div className="app">
+      {screen === 'resume_choice' && (
+        <div className="flow">
+          <nav className="topnav"><div className="brand"><BrandMark size={22} /><span>Thesis</span></div><div className="end" /></nav>
+          <div className="flow-body">
+            <div className="sv-wrap" style={{ textAlign: 'center' }}>
+              <div className="eyebrow" style={{ justifyContent: 'center' }}><span className="dot" />Welcome back</div>
+              <h2 className="consent-title">Continue where you left off?</h2>
+              <p className="sv-intro" style={{ maxWidth: '46ch', margin: '0 auto 20px' }}>
+                We found an unfinished session on this device. You can pick up exactly where you stopped, or start a fresh one.
+              </p>
+              <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
+                <button className="btn accent" onClick={resumeRun}>Continue my session →</button>
+                <button className="btn ghost" onClick={startOver}>Start over</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {screen === 'landing' && <Landing onBegin={() => setScreen('consent')} />}
 
       {screen === 'consent' && (
@@ -247,7 +278,7 @@ function App() {
       )}
 
       {screen === 'postsurvey' && (
-        <PostSurvey answers={postAnswers} onChange={setPost} career={phaseB && phaseB.career}
+        <PostSurvey answers={postAnswers} onChange={setPost} career={phaseB && phaseB.career} study={study}
           onDone={() => {
             apiSaveSession(studyId.current, { postSurvey: postAnswers, version: '3.0', finalize: true });
             setScreen('free');
@@ -277,6 +308,8 @@ function App() {
       {/* The design Tweaks panel is a researcher/dev tool — hidden from real
           participants to keep the flow seamless (Build Plan §16); show with ?test=1. */}
       {testMode && <ThesisTweaks tweaks={tweaks} setTweak={setTweak} />}
+      {/* Participant-facing comfort/accessibility control (always available). */}
+      <ComfortSettings tweaks={tweaks} setTweak={setTweak} />
     </div>
   );
 }

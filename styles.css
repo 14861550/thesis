@@ -463,3 +463,59 @@ textarea.text-input { resize: vertical; min-height: 96px; line-height: 1.55; }
 
 /* Let long survey / phase-b pages scroll from the top instead of clipping */
 .flow-body:has(.sv-wrap), .flow-body:has(.pb-wrap) { align-items: flex-start; overflow-y: auto; }
+
+/* ====================================================================
+   Comfort & display settings (participant accessibility — Build Plan §16/§16a)
+   Driven by data attributes on <html> set by ComfortSettings. The CSS is
+   px-based, so text size uses `zoom` (supported in all current engines).
+   ==================================================================== */
+html[data-size="md"] { zoom: 1.06; }
+html[data-size="lg"] { zoom: 1.12; }
+html[data-size="xl"] { zoom: 1.20; }
+
+html[data-spacing="roomy"] .bubble p,
+html[data-spacing="roomy"] .sv-intro,
+html[data-spacing="roomy"] .consent-body,
+html[data-spacing="roomy"] .consent-body p,
+html[data-spacing="roomy"] .hero-sub,
+html[data-spacing="roomy"] .sv-scale-text { line-height: 1.9; }
+
+html[data-width="wide"] .chat-thread,
+html[data-width="wide"] .sv-wrap,
+html[data-width="wide"] .pb-wrap { max-width: 900px; }
+html[data-width="narrow"] .chat-thread,
+html[data-width="narrow"] .sv-wrap,
+html[data-width="narrow"] .pb-wrap { max-width: 600px; }
+
+html[data-motion="reduced"] *,
+html[data-motion="reduced"] *::before,
+html[data-motion="reduced"] *::after {
+  animation-duration: .001ms !important; animation-iteration-count: 1 !important;
+  transition-duration: .001ms !important; scroll-behavior: auto !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .001ms !important; transition-duration: .001ms !important; }
+}
+
+.comfort-fab {
+  position: fixed; right: 18px; bottom: 18px; z-index: 60;
+  width: 44px; height: 44px; border-radius: 999px;
+  border: 1px solid var(--border-strong); background: var(--surface); color: var(--ink);
+  box-shadow: var(--shadow-pop); cursor: pointer; font-size: 16px; font-weight: 600;
+  display: flex; align-items: center; justify-content: center;
+}
+.comfort-panel {
+  position: fixed; right: 18px; bottom: 70px; z-index: 60; width: 268px;
+  background: var(--surface); border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md); box-shadow: var(--shadow-pop); padding: 14px 14px 6px;
+}
+.comfort-panel h4 { margin: 0 0 12px; font-size: 13px; color: var(--ink); }
+.comfort-row { margin-bottom: 12px; }
+.comfort-row .lbl { font-size: 10.5px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin-bottom: 5px; }
+.comfort-seg { display: flex; gap: 4px; }
+.comfort-seg button {
+  flex: 1; min-width: 0; padding: 6px 4px; font-size: 12px;
+  border: 1px solid var(--border); background: var(--surface-2); color: var(--ink-2);
+  border-radius: 7px; cursor: pointer;
+}
+.comfort-seg button.on { background: var(--accent-soft); color: var(--accent-ink); border-color: var(--accent); }

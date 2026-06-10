@@ -302,4 +302,63 @@ function Pause({ title, lines = [], cta = 'Continue', eyebrow = 'Take a breath',
   );
 }
 
-Object.assign(window, { Landing, AvatarCreation, Questionnaire, QUESTIONS, SWATCHES, Consent, Pause });
+/* ============================================================
+   COMFORT & DISPLAY SETTINGS (participant-facing — Build Plan §16/§16a)
+   A small floating "Aa" control: text size, theme, line spacing, reading width,
+   motion. Theme routes through the shared tweak (one source of truth); the rest
+   are applied as data-attributes on <html> (see styles.css) and remembered in
+   localStorage. Shown to everyone — unlike the researcher Tweaks panel.
+   To match the Build Plan's opinionated defaults (A++/Dark/Roomy/Wide), change
+   COMFORT_DEFAULTS + the theme default; kept neutral here so nothing looks off.
+   ============================================================ */
+const COMFORT_KEY = 'thesis_comfort_v1';
+const COMFORT_DEFAULTS = { size: 'sm', spacing: 'cozy', width: 'normal', motion: 'full' };
+
+function ComfortSettings({ tweaks, setTweak }) {
+  const [open, setOpen] = React.useState(false);
+  const [c, setC] = React.useState(() => {
+    try { return { ...COMFORT_DEFAULTS, ...JSON.parse(localStorage.getItem(COMFORT_KEY) || '{}') }; }
+    catch (e) { return { ...COMFORT_DEFAULTS }; }
+  });
+  React.useEffect(() => {
+    const h = document.documentElement;
+    h.dataset.size = c.size; h.dataset.spacing = c.spacing;
+    h.dataset.width = c.width; h.dataset.motion = c.motion;
+    try { localStorage.setItem(COMFORT_KEY, JSON.stringify(c)); } catch (e) {}
+  }, [c]);
+  const set = (k, v) => setC((prev) => ({ ...prev, [k]: v }));
+
+  const Seg = ({ label, k, opts }) => (
+    <div className="comfort-row">
+      <div className="lbl">{label}</div>
+      <div className="comfort-seg">
+        {opts.map((o) => {
+          const active = k === 'theme' ? tweaks.theme === o.v : c[k] === o.v;
+          return (
+            <button key={o.v} className={active ? 'on' : ''}
+              onClick={() => (k === 'theme' ? setTweak('theme', o.v) : set(k, o.v))}>{o.l}</button>
+          );
+        })}
+      </div>
+    </div>
+  );
+
+  return (
+    <>
+      <button className="comfort-fab" aria-label="Comfort and display settings"
+        title="Comfort & display" onClick={() => setOpen((o) => !o)}>Aa</button>
+      {open && (
+        <div className="comfort-panel" role="dialog" aria-label="Comfort settings">
+          <h4>Comfort &amp; display</h4>
+          <Seg label="Text size" k="size" opts={[{ v: 'sm', l: 'A' }, { v: 'md', l: 'A+' }, { v: 'lg', l: 'A++' }, { v: 'xl', l: 'A+++' }]} />
+          <Seg label="Theme" k="theme" opts={[{ v: 'light', l: 'Light' }, { v: 'dark', l: 'Dark' }]} />
+          <Seg label="Line spacing" k="spacing" opts={[{ v: 'cozy', l: 'Cozy' }, { v: 'roomy', l: 'Roomy' }]} />
+          <Seg label="Reading width" k="width" opts={[{ v: 'narrow', l: 'Narrow' }, { v: 'normal', l: 'Default' }, { v: 'wide', l: 'Wide' }]} />
+          <Seg label="Motion" k="motion" opts={[{ v: 'full', l: 'Full' }, { v: 'reduced', l: 'Reduced' }]} />
+        </div>
+      )}
+    </>
+  );
+}
+
+Object.assign(window, { Landing, AvatarCreation, Questionnaire, QUESTIONS, SWATCHES, Consent, Pause, ComfortSettings });

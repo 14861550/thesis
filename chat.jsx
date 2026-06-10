@@ -166,18 +166,12 @@ function Chat({ profile, condition = 'main', profileData = {}, phaseBNotes = '',
     }
   };
 
-  const regen = async (msgId) => {
-    if (!sessionId.current || pending) return;
-    setMessages(prev => prev.map(m => m.id === msgId ? { ...m, regenerating: true } : m));
-    setError(null);
-    try {
-      const { reply } = await postJSON('/api/regenerate', { sessionId: sessionId.current });
-      setMessages(prev => prev.map(m => m.id === msgId ? { ...m, paras: splitParas(reply), regenerating: false } : m));
-    } catch (e) {
-      setMessages(prev => prev.map(m => m.id === msgId ? { ...m, regenerating: false } : m));
-      setError(e.message || 'Could not rephrase. Please try again.');
-    }
-  };
+  // Regenerate ("This doesn't feel like me") is intentionally REMOVED for the
+  // controlled study: letting a participant re-roll the future self's reply makes
+  // the role-play exposure non-comparable across participants and could be steered
+  // toward a flattering answer — a confound for the IBM outcome measures
+  // (Build Plan §11.5 seamlessness / measurement integrity). The /api/regenerate
+  // route still exists for ad-hoc testing but is no longer reachable in the UI.
 
   return (
     <div className="chat-app" data-screen-label="04 Chat">
@@ -254,12 +248,6 @@ function Chat({ profile, condition = 'main', profileData = {}, phaseBNotes = '',
                   </div>
                   {m.role === 'future' && !m.regenerating && (
                     <div className="actions">
-                      {isLast && (
-                      <button onClick={() => regen(m.id)} disabled={pending} title="Regenerate">
-                        <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 6a4 4 0 1 1 1.2 2.8M2 9V6h3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                        This doesn't feel like me
-                      </button>
-                      )}
                       <button title="Copy">
                         <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><rect x="3.5" y="3.5" width="6" height="6" rx="1" stroke="currentColor" strokeWidth="1.4"/><path d="M2 8V2.5C2 2.2 2.2 2 2.5 2H8" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/></svg>
                         Copy
