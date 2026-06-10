@@ -221,32 +221,46 @@ function SessionDetail({ id, onClose }) {
 
 function NewSession({ onClose, onCreated }) {
   const [condition, setCondition] = useState('');
+  const [rec, setRec] = useState('guide');
+  const [study, setStudy] = useState('kangzhi');
+  const [pid, setPid] = useState('');
   const [link, setLink] = useState(null);
   const create = async () => {
-    const d = await api('/api/admin/sessions', { method: 'POST', body: JSON.stringify({ condition: condition || undefined }) });
-    setLink({ link: location.origin + d.link, condition: d.condition, id: d.id });
+    const d = await api('/api/admin/sessions', { method: 'POST', body: JSON.stringify({
+      condition: condition || undefined, rec, study: study || undefined, pid: pid || undefined,
+    }) });
+    setLink({ link: location.origin + d.link, condition: d.condition, rec: d.rec, study: d.study, id: d.id });
     onCreated && onCreated();
   };
   return (
     <div className="overlay" onClick={onClose}>
-      <div className="modal" style={{ width: 480 }} onClick={(e) => e.stopPropagation()}>
+      <div className="modal" style={{ width: 520 }} onClick={(e) => e.stopPropagation()}>
         <span className="close" onClick={onClose}>×</span>
         <h2>New participant session</h2>
         {!link ? (
           <div>
-            <p className="muted">Pick a condition or leave blank for balanced auto-assignment.</p>
-            <div className="row">
-              <select value={condition} onChange={(e) => setCondition(e.target.value)}>
-                <option value="">Balanced (auto)</option>
-                <option value="main">main</option>
-                <option value="baseline">baseline</option>
-              </select>
+            <p className="muted">Leave condition blank for balanced auto-assignment. Rec = stage-B prompt (guide = Kangzhi; reflective / direct = Andrea).</p>
+            <div className="row" style={{ marginBottom: 8 }}>
+              <label>Cond&nbsp;
+                <select value={condition} onChange={(e) => setCondition(e.target.value)}>
+                  <option value="">Balanced (auto)</option><option value="main">main</option><option value="baseline">baseline</option>
+                </select>
+              </label>
+              <label>Rec&nbsp;
+                <select value={rec} onChange={(e) => setRec(e.target.value)}>
+                  <option value="guide">guide</option><option value="reflective">reflective</option><option value="direct">direct</option>
+                </select>
+              </label>
+            </div>
+            <div className="row" style={{ marginBottom: 10 }}>
+              <label>Study&nbsp;<input type="text" value={study} onChange={(e) => setStudy(e.target.value)} style={{ width: 110 }} /></label>
+              <label>PID&nbsp;<input type="text" value={pid} onChange={(e) => setPid(e.target.value)} placeholder="K017" style={{ width: 90 }} /></label>
               <button className="btn pri" onClick={create}>Create &amp; get link</button>
             </div>
           </div>
         ) : (
           <div>
-            <p>Condition: <b>{link.condition}</b> · id <code className="id">{short(link.id)}</code></p>
+            <p>{link.study} · rec <b>{link.rec}</b> · cond <b>{link.condition}</b> · id <code className="id">{short(link.id)}</code></p>
             <div className="link-box">{link.link}</div>
             <button className="btn" style={{ marginTop: 10 }} onClick={() => navigator.clipboard.writeText(link.link)}>Copy link</button>
           </div>
@@ -289,11 +303,14 @@ function SessionsView() {
         <button className="btn" onClick={() => { location.href = '/api/admin/sessions/export?deidentify=1'; }}>Export de-identified</button>
       </div>
       <table>
-        <thead><tr><th>ID</th><th>Condition</th><th>Status</th><th>Career</th><th>Phase-C turns</th><th>Created</th><th>Completed</th><th></th></tr></thead>
+        <thead><tr><th>ID</th><th>PID</th><th>Study</th><th>Rec</th><th>Cond</th><th>Status</th><th>Career</th><th>C-turns</th><th>Created</th><th>Completed</th><th></th></tr></thead>
         <tbody>
           {rows.map((r) => (
             <tr key={r.id}>
               <td><code className="id">{short(r.id)}</code></td>
+              <td className="muted">{r.pid || '—'}</td>
+              <td className="muted">{r.study || '—'}</td>
+              <td>{r.rec || '—'}</td>
               <td>{r.condition}</td>
               <td><Pill s={r.status} /></td>
               <td>{r.career || <span className="muted">—</span>}</td>
@@ -306,7 +323,7 @@ function SessionsView() {
               </td>
             </tr>
           ))}
-          {!rows.length && <tr><td colSpan="8" className="muted">No sessions yet.</td></tr>}
+          {!rows.length && <tr><td colSpan="11" className="muted">No sessions yet.</td></tr>}
         </tbody>
       </table>
       {open && <SessionDetail id={open} onClose={() => setOpen(null)} />}
@@ -496,6 +513,52 @@ function SimView() {
   );
 }
 
+function DescriptivesView() {
+  const [studies, setStudies] = useState(null);
+  const [err, setErr] = useState(null);
+  useEffect(() => { api('/api/admin/sessions/export').then(setStudies).catch((e) => setErr(e.message)); }, []);
+  if (err) return <div className="note">{err}</div>;
+  if (!studies) return <p className="muted">Loading…</p>;
+  const m = (xs) => { const v = xs.map(Number).filter((x) => !Number.isNaN(x)); return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null; };
+  const f2 = (x) => (x == null ? '—' : x.toFixed(2));
+  const d2 = (a, b) => (a == null || b == null ? '—' : (b - a >= 0 ? '+' : '') + (b - a).toFixed(2));
+  const perPerson = (objs, ids) => objs.map((o) => m(ids.map((id) => o[id]))).filter((x) => x != null);
+  const groups = {};
+  for (const s of studies) { const c = (s.meta && s.meta.condition) || 'main'; (groups[c] = groups[c] || []).push(s); }
+  const stat = (list) => {
+    const pre = list.map((s) => s.preSurvey || {}), post = list.map((s) => s.postSurvey || {});
+    return {
+      n: list.length,
+      completed: list.filter((s) => s.meta && s.meta.completedAt).length,
+      iosPre: m(pre.map((o) => o.ios_pre)), iosPost: m(post.map((o) => o.ios_post)),
+      fPre: m(perPerson(pre, ['fscs_similar', 'fscs_connected', 'fscs_care'])),
+      fPost: m(perPerson(post, ['fscs_similar_post', 'fscs_connected_post', 'fscs_care_post'])),
+      vPre: m(perPerson(pre, ['viv_clear', 'viv_tangible', 'viv_detail', 'viv_felt'])),
+      vPost: m(perPerson(post, ['viv_clear_post', 'viv_tangible_post', 'viv_detail_post', 'viv_felt_post'])),
+    };
+  };
+  const conds = Object.keys(groups).sort();
+  return (
+    <div>
+      <div className="note">Live per-condition descriptives (Build Plan §14). Means over stored responses; Δ = post − pre. Descriptive only — t-test / ANCOVA / Cronbach's α are phase 2 (run <b>analysis.py</b> on the exported data).</div>
+      <table>
+        <thead><tr><th>Condition</th><th>N</th><th>Completed</th><th>IOS pre → post (Δ)</th><th>FSCS pre → post (Δ)</th><th>Vividness pre → post (Δ)</th></tr></thead>
+        <tbody>
+          {conds.map((c) => { const s = stat(groups[c]); return (
+            <tr key={c}>
+              <td><b>{c}</b></td><td>{s.n}</td><td>{s.completed}</td>
+              <td>{f2(s.iosPre)} → {f2(s.iosPost)} <span className="muted">({d2(s.iosPre, s.iosPost)})</span></td>
+              <td>{f2(s.fPre)} → {f2(s.fPost)} <span className="muted">({d2(s.fPre, s.fPost)})</span></td>
+              <td>{f2(s.vPre)} → {f2(s.vPost)} <span className="muted">({d2(s.vPre, s.vPost)})</span></td>
+            </tr>
+          ); })}
+          {!conds.length && <tr><td colSpan="6" className="muted">No sessions yet.</td></tr>}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 function App() {
   const [tab, setTab] = useState('sessions');
   const [dark, setDark] = useState(() => document.documentElement.getAttribute('data-theme') === 'dark');
@@ -513,6 +576,7 @@ function App() {
         <span className="eyebrow-tag">Study admin</span>
         <div className="tabs">
           <div className={'tab' + (tab === 'sessions' ? ' on' : '')} onClick={() => setTab('sessions')}>Sessions</div>
+          <div className={'tab' + (tab === 'desc' ? ' on' : '')} onClick={() => setTab('desc')}>Descriptives</div>
           <div className={'tab' + (tab === 'eval' ? ' on' : '')} onClick={() => setTab('eval')}>Eval runs</div>
           <div className={'tab' + (tab === 'sim' ? ' on' : '')} onClick={() => setTab('sim')}>Simulations</div>
         </div>
@@ -522,7 +586,7 @@ function App() {
         <button className="icon-btn" onClick={toggleTheme} title="Toggle light / dark">{dark ? '☀' : '☾'}</button>
         <button className="btn" onClick={logout}>Sign out</button>
       </header>
-      <main>{tab === 'sessions' ? <SessionsView /> : tab === 'eval' ? <EvalView /> : <SimView />}</main>
+      <main>{tab === 'sessions' ? <SessionsView /> : tab === 'desc' ? <DescriptivesView /> : tab === 'eval' ? <EvalView /> : <SimView />}</main>
     </div>
   );
 }
