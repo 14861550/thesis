@@ -361,4 +361,65 @@ function ComfortSettings({ tweaks, setTweak }) {
   );
 }
 
-Object.assign(window, { Landing, AvatarCreation, Questionnaire, QUESTIONS, SWATCHES, Consent, Pause, ComfortSettings });
+/* ============================================================
+   RESEARCHER LAUNCHER (test mode only — Build Plan §16b)
+   Shown only with ?test=1 (never to real participants, who open a fixed link).
+   Lets the researcher pick the two routing axes (rec × cond) + study tag and
+   jump straight in, or open the dashboard. Picking an axis reloads with the new
+   query params (which are then locked for the run, exactly like a real link).
+   ============================================================ */
+const INTENDED_COMBOS = {
+  kangzhi: [['guide', 'main'], ['guide', 'baseline']],
+  andrea: [['reflective', 'main'], ['direct', 'main']],
+};
+function isIntended(study, rec, cond) {
+  return (INTENDED_COMBOS[study] || []).some(([r, c]) => r === rec && c === cond);
+}
+
+function Launcher({ condition, rec, study, pid, onStart }) {
+  const nav = (patch) => {
+    const q = new URLSearchParams(window.location.search);
+    Object.entries(patch).forEach(([k, v]) => q.set(k, v));
+    q.set('test', '1');
+    window.location.search = q.toString(); // reload with the chosen axes locked
+  };
+  const Seg = ({ label, cur, k, opts }) => (
+    <div className="comfort-row">
+      <div className="lbl">{label}</div>
+      <div className="comfort-seg">
+        {opts.map((o) => (
+          <button key={o} className={cur === o ? 'on' : ''} onClick={() => nav({ [k]: o })}>{o}</button>
+        ))}
+      </div>
+    </div>
+  );
+  return (
+    <div className="flow">
+      <nav className="topnav">
+        <div className="brand"><BrandMark size={22} /><span>Thesis</span></div>
+        <div className="sv-eyebrow">Researcher launcher · test mode</div>
+        <div className="end" />
+      </nav>
+      <div className="flow-body">
+        <div className="sv-wrap">
+          <div className="eyebrow"><span className="dot" />Test mode (?test=1) — never shown to participants</div>
+          <h2 className="consent-title">Launch a test run</h2>
+          <p className="sv-intro">Pick the two routing axes, then start. Real participants open a fixed personal link and skip this entirely.</p>
+          <Seg label="Rec — stage B prompt" cur={rec} k="rec" opts={['guide', 'reflective', 'direct']} />
+          <Seg label="Cond — stage C prompt" cur={condition} k="cond" opts={['main', 'baseline']} />
+          <Seg label="Study tag" cur={study} k="study" opts={['kangzhi', 'andrea']} />
+          <p className="sv-hint" style={{ marginTop: 6 }}>
+            Current: study=<b>{study}</b> · rec=<b>{rec}</b> · cond=<b>{condition}</b>{pid ? <> · pid=<b>{pid}</b></> : null}
+            {isIntended(study, rec, condition) ? null : <span className="muted"> · ⚠ non-standard combo</span>}
+          </p>
+          <div style={{ display: 'flex', gap: 10, marginTop: 14, flexWrap: 'wrap' }}>
+            <button className="btn accent" onClick={onStart}>Start as participant →</button>
+            <a className="btn ghost" href="/admin" target="_blank" rel="noreferrer">Open dashboard ↗</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+Object.assign(window, { Landing, AvatarCreation, Questionnaire, QUESTIONS, SWATCHES, Consent, Pause, ComfortSettings, Launcher });

@@ -80,7 +80,7 @@ function App() {
   const [study] = useState(readStudy);
   const [pid] = useState(readPid);
   const [testMode] = useState(readTestMode);
-  const [screen, setScreen] = useState('landing');
+  const [screen, setScreen] = useState(() => (readTestMode() ? 'launcher' : 'landing'));
   const [profile, setProfile] = useState({ name: '', color: '#b5552f' });
   const [preAnswers, setPreAnswers] = useState({});
   const [phaseB, setPhaseB] = useState(null);     // { career, location, familiarity, interestStrength, transcript }
@@ -112,7 +112,7 @@ function App() {
     let snap = null;
     try { snap = JSON.parse(localStorage.getItem(PROGRESS_KEY) || 'null'); } catch (e) {}
     const existing = readSessionParam();
-    if (snap && snap.screen && snap.screen !== 'landing' && snap.screen !== 'done') {
+    if (!readTestMode() && snap && snap.screen && snap.screen !== 'landing' && snap.screen !== 'done') {
       // Offer an explicit resume-or-restart choice (Build Plan §13a) rather than
       // silently restoring — the participant decides to continue or start fresh.
       if (snap.studyId) studyId.current = snap.studyId;
@@ -127,7 +127,7 @@ function App() {
 
   // Persist progress locally so a dropped connection / refresh can resume.
   useEffect(() => {
-    if (screen === 'landing' || screen === 'resume_choice') return;
+    if (screen === 'landing' || screen === 'resume_choice' || screen === 'launcher') return;
     try {
       if (screen === 'done') { localStorage.removeItem(PROGRESS_KEY); return; }
       localStorage.setItem(PROGRESS_KEY, JSON.stringify({
@@ -187,6 +187,11 @@ function App() {
             </div>
           </div>
         </div>
+      )}
+
+      {screen === 'launcher' && (
+        <Launcher condition={condition} rec={rec} study={study} pid={pid}
+          onStart={() => setScreen('landing')} />
       )}
 
       {screen === 'landing' && <Landing onBegin={() => setScreen('consent')} />}
