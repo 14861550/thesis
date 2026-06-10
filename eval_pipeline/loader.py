@@ -55,7 +55,8 @@ def load_session(path: str) -> Dict[str, Any]:
 
     # --- extract pre outcomes ---
     record["outcomes_pre"] = {
-        "continuity": _mean([pre.get("fscs_similar"), pre.get("fscs_connected"), pre.get("fscs_care")]),
+        # FSCS = 2-item pictorial pair (similarity + connectedness); Build Plan §10.1e.
+        "continuity": _mean([pre.get("fscs_similar"), pre.get("fscs_connected")]),
         "vividness": _mean([pre.get("viv_clear"), pre.get("viv_tangible"), pre.get("viv_detail"), pre.get("viv_felt")]),
         "closeness": pre.get("ios_pre"),
         "manip_checks": None,  # no pre measure
@@ -64,7 +65,7 @@ def load_session(path: str) -> Dict[str, Any]:
     # --- extract post outcomes ---
     record["outcomes_post"] = {
         "continuity": _mean([
-            post.get("fscs_similar_post"), post.get("fscs_connected_post"), post.get("fscs_care_post")
+            post.get("fscs_similar_post"), post.get("fscs_connected_post")
         ]),
         "vividness": _mean([
             post.get("viv_clear_post"), post.get("viv_tangible_post"),

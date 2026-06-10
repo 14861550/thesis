@@ -136,7 +136,11 @@ function App() {
 
   // Persist progress locally so a dropped connection / refresh can resume.
   useEffect(() => {
-    if (screen === 'landing' || screen === 'resume_choice' || screen === 'launcher') return;
+    // Only snapshot once the participant is genuinely into the study (pre-survey
+    // onward). Landing/consent/avatar/launcher/resume aren't an "in-progress run"
+    // to resume into (§13a), and we don't want a consent-screen refresh to pop the
+    // resume-or-restart choice.
+    if (['landing', 'consent', 'avatar', 'resume_choice', 'launcher'].includes(screen)) return;
     try {
       if (screen === 'done') { localStorage.removeItem(PROGRESS_KEY); return; }
       localStorage.setItem(PROGRESS_KEY, JSON.stringify({
