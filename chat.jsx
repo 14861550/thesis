@@ -170,7 +170,7 @@ function mmss(min) {
   return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
 }
 
-function Chat({ profile, condition = 'main', profileData = {}, phaseBNotes = '', location = '', career: careerProp, seedTranscript = [], onComplete, onExit, onAutosave }) {
+function Chat({ profile, condition = 'main', profileData = {}, phaseBNotes = '', location = '', career: careerProp, seedTranscript = [], seedElapsedSec = 0, onComplete, onExit, onAutosave }) {
   const career = careerProp || profileData.career || 'this career';
   const initials = useMemo(
     () => (profile.name?.trim().split(/\s+/).map(w => w[0]).join('').slice(0, 2) || '—').toUpperCase(),
@@ -189,19 +189,29 @@ function Chat({ profile, condition = 'main', profileData = {}, phaseBNotes = '',
   const usedIdeas = useRef(new Set());
   const userTexts = useRef([]);                   // what they asked, for chip de-duplication
   const [error, setError] = useState(null);
-  const [elapsedMin, setElapsedMin] = useState(0);
+  // Conversation clock = ACCUMULATED seconds, not wall time since mount: it
+  // pauses while the page is hidden/closed or while a connection error blocks
+  // the conversation, persists with every autosave, and resumes from the saved
+  // value (seedElapsedSec) — interruptions don't eat the participant's 30 min.
+  const [elapsedSec, setElapsedSec] = useState(Math.max(0, Math.round(seedElapsedSec || 0)));
+  const elapsedRef = useRef(elapsedSec);
+  const errorRef = useRef(null);
   const [nextRest, setNextRest] = useState(SOFT_MIN); // recurring rest prompt cadence (§11.4)
   const [saveState, setSaveState] = useState('');      // '' | 'saving' | 'saved' (§13b autosave indicator)
   const [lastFailed, setLastFailed] = useState(null);  // failed user turn, for a clean "Try again" (§13b)
   const scrollRef = useRef(null);
   const taRef = useRef(null);
   const sessionId = useRef(null);
-  const startedAt = useRef(null);
+  const messagesRef = useRef([]);
   const slowReply = useSlowPending(pending || booting);
+
+  useEffect(() => { messagesRef.current = messages; }, [messages]);
+  useEffect(() => { errorRef.current = error; }, [error]);
 
   // Reset the composer height after a send clears the draft programmatically.
   useEffect(() => { if (!draft) autoGrowTA(taRef.current); }, [draft]);
 
+  const elapsedMin = elapsedSec / 60;
   const hard = elapsedMin >= HARD_MIN;
   const soft = !hard && elapsedMin >= nextRest; // fires at 20 min and again every 20 if it continues
 
@@ -210,13 +220,21 @@ function Chat({ profile, condition = 'main', profileData = {}, phaseBNotes = '',
     if (el) el.scrollTop = el.scrollHeight;
   }, [messages, pending, booting]);
 
-  // Tick the clock once the conversation has started (1s so the header clock runs smoothly).
+  // Tick the clock only while the conversation is actually live: not while
+  // connecting, not while the tab is hidden / the page is closed, not while a
+  // connection error is blocking replies, and not past the hard cap.
   useEffect(() => {
+    if (booting) return undefined;
     const t = setInterval(() => {
-      if (startedAt.current) setElapsedMin((Date.now() - startedAt.current) / 60000);
+      if (document.hidden || errorRef.current) return;
+      setElapsedSec((s) => {
+        const next = s >= HARD_MIN * 60 ? s : s + 1;
+        elapsedRef.current = next;
+        return next;
+      });
     }, 1000);
     return () => clearInterval(t);
-  }, []);
+  }, [booting]);
 
   // Persist the transcript-so-far after every change (§13a: nothing lives only
   // in browser memory; the user turn is saved before the slow model call too,
@@ -229,7 +247,10 @@ function Chat({ profile, condition = 'main', profileData = {}, phaseBNotes = '',
   useEffect(() => {
     if (!onAutosave || !messages.length) return;
     setSaveState('saving');
-    Promise.resolve(onAutosave(toTranscript(messages))).finally(() => setSaveState('saved'));
+    // durationSec/turnCount ride with every save: saveSession replaces the whole
+    // phaseC section, and the persisted clock is what a resume continues from.
+    const extra = { durationSec: elapsedRef.current, turnCount: messages.filter((m) => m.role === 'user').length };
+    Promise.resolve(onAutosave(toTranscript(messages), extra)).finally(() => setSaveState('saved'));
   }, [messages]);
 
   // Create the phase-c session (condition-routed) and fetch the opener on mount.
@@ -255,12 +276,10 @@ function Chat({ profile, condition = 'main', profileData = {}, phaseBNotes = '',
           });
         if (cancelled) return;
         sessionId.current = sid;
-        startedAt.current = Date.now();
         setMessages([...seed, { role: 'future', paras: splitParas(text), id: 'm0', ts: new Date().toISOString() }]);
         setAskIdeas(pickAskIdeas(usedIdeas.current, 4, userTexts.current));
       } catch (e) {
         if (cancelled) return;
-        startedAt.current = Date.now();
         setMessages([...seed, { role: 'future', paras: opening, id: 'm0', ts: new Date().toISOString() }]);
         setError("Couldn't reach your future self — replies won't work until the server is running.");
       } finally {
@@ -272,7 +291,7 @@ function Chat({ profile, condition = 'main', profileData = {}, phaseBNotes = '',
 
   const finish = () => {
     const transcript = toTranscript(messages);
-    const durationSec = startedAt.current ? Math.round((Date.now() - startedAt.current) / 1000) : 0;
+    const durationSec = elapsedRef.current; // accumulated live time (pauses excluded)
     const turnCount = messages.filter(m => m.role === 'user').length;
     const hitSoft = elapsedMin >= SOFT_MIN;
     const endedBy = hard ? 'hard_cap' : 'user';
@@ -284,10 +303,25 @@ function Chat({ profile, condition = 'main', profileData = {}, phaseBNotes = '',
     );
   };
 
+  // The server holds the live LLM session in memory; a redeploy/restart loses it
+  // ("Unknown session"). Self-heal: silently re-create the phase-c session with
+  // the full visible transcript replayed into the model (minus the trailing user
+  // turn, which is about to be re-sent), so the conversation continues with full
+  // memory and the participant notices nothing.
+  const reconnect = async () => {
+    const prior = toTranscript(messagesRef.current);
+    const seed = prior.length && prior[prior.length - 1].role === 'user' ? prior.slice(0, -1) : prior;
+    const { sessionId: sid } = await postJSON('/api/phase-c/session', {
+      condition, profileData, phaseBNotes, location,
+      priorTranscript: seed, silentResume: true,
+    });
+    sessionId.current = sid;
+  };
+
   // Ask the model for a reply to `t`. The user bubble is appended by `send`;
   // `retry` reuses the same path WITHOUT re-appending it (the server rolled the
   // failed turn back, so re-sending the text is clean — §13b).
-  const requestReply = async (t) => {
+  const requestReply = async (t, isRetryAfterReconnect = false) => {
     setPending(true);
     setError(null);
     try {
@@ -296,6 +330,13 @@ function Chat({ profile, condition = 'main', profileData = {}, phaseBNotes = '',
       setAskIdeas(pickAskIdeas(usedIdeas.current, 4, userTexts.current)); // fresh angles after every reply
       setLastFailed(null);
     } catch (e) {
+      if (!isRetryAfterReconnect && /unknown session/i.test(e.message || '')) {
+        try {
+          await reconnect();
+          setPending(false);
+          return requestReply(t, true);
+        } catch (e2) { /* fall through to the normal error path */ }
+      }
       setLastFailed(t);
       setError("Connection hiccuped — your progress is saved.");
     } finally {
@@ -306,11 +347,19 @@ function Chat({ profile, condition = 'main', profileData = {}, phaseBNotes = '',
   const send = async (text) => {
     const t = text.trim();
     if (!t || pending || booting || hard) return;
-    if (!sessionId.current) { setError('No active session — reload to reconnect.'); return; }
     setMessages(prev => [...prev, { role: 'user', text: t, id: `u${Date.now()}`, ts: new Date().toISOString() }]);
     setDraft('');
     userTexts.current.push(t);
     setAskIdeas([]); // hide while the reply is in flight; refreshed on arrival
+    if (!sessionId.current) {
+      // No live session (e.g. boot failed earlier) — rebuild one silently from
+      // the visible transcript instead of dead-ending the participant.
+      try { await reconnect(); } catch (e) {
+        setLastFailed(t);
+        setError('Connection hiccuped — your progress is saved.');
+        return;
+      }
+    }
     await requestReply(t);
   };
 
@@ -478,7 +527,8 @@ function Chat({ profile, condition = 'main', profileData = {}, phaseBNotes = '',
    the clock keeps counting, and it is logged SEPARATELY — never part of the main
    analysis. Optional; the participant is already "done".
    ============================================================ */
-function FreeContinuation({ profile = {}, career = 'this career', sessionId, history = [], onDone, onAutosave }) {
+function FreeContinuation({ profile = {}, career = 'this career', sessionId, history = [],
+  condition = 'main', profileData = {}, phaseBNotes = '', location = '', onDone, onAutosave }) {
   const { useState, useEffect, useRef } = React;
   const [messages, setMessages] = useState([]);
   const [draft, setDraft] = useState('');
@@ -524,18 +574,43 @@ function FreeContinuation({ profile = {}, career = 'this career', sessionId, his
     onDone && onDone({ transcript: toTranscript(messages), durationSec, turnCount });
   };
 
-  const send = async (text) => {
+  // The live server session may be gone (server restart, or the run was resumed
+  // on another device after the post-survey). Self-heal exactly like the main
+  // chat: rebuild a phase-c session silently from the role-play history + the
+  // free turns so far, so "keep talking" always works.
+  const sid = useRef(sessionId || null);
+  const rebuildSession = async () => {
+    const freeSoFar = toTranscript(messages);
+    const seed = [...(history || []), ...freeSoFar]
+      .filter((m) => m && typeof m.text === 'string' && m.text.trim());
+    const { sessionId: fresh } = await postJSON('/api/phase-c/session', {
+      condition, profileData, phaseBNotes, location,
+      priorTranscript: seed.length ? seed : [{ role: 'future', text: `Hey — it's me again, your future self (${career}).` }],
+      silentResume: true,
+    });
+    sid.current = fresh;
+  };
+
+  const send = async (text, isRetryAfterReconnect = false) => {
     const t = text.trim();
     if (!t || pending) return;
-    if (!sessionId) { setError('This chat has ended — your study session is already saved.'); return; }
-    setMessages((p) => [...p, { role: 'user', text: t, id: `u${Date.now()}`, ts: new Date().toISOString() }]);
-    setDraft(''); setPending(true); setError(null); setAskIdeas([]);
-    userTexts.current.push(t);
+    if (!isRetryAfterReconnect) {
+      setMessages((p) => [...p, { role: 'user', text: t, id: `u${Date.now()}`, ts: new Date().toISOString() }]);
+      setDraft('');
+      userTexts.current.push(t);
+    }
+    setPending(true); setError(null); setAskIdeas([]);
     try {
-      const { reply } = await postJSON('/api/chat', { sessionId, message: t });
+      if (!sid.current) await rebuildSession();
+      const { reply } = await postJSON('/api/chat', { sessionId: sid.current, message: t });
       setMessages((p) => [...p, { role: 'future', paras: splitParas(reply), id: `f${Date.now()}`, ts: new Date().toISOString() }]);
       setAskIdeas(pickAskIdeas(usedIdeas.current, 4, userTexts.current));
     } catch (e) {
+      if (!isRetryAfterReconnect && /unknown session/i.test(e.message || '')) {
+        sid.current = null;
+        setPending(false);
+        return send(text, true);
+      }
       setError(e.message || 'Something went wrong. Please try again.');
       setAskIdeas(pickAskIdeas(usedIdeas.current, 4, userTexts.current));
     } finally { setPending(false); }

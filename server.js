@@ -212,24 +212,34 @@ app.post('/api/phase-b/session', async (req, res) => {
 
 app.post('/api/phase-c/session', async (req, res) => {
   try {
-    const { condition = 'main', profileData = {}, phaseBNotes = '', location = '', priorTranscript = [] } = req.body || {};
+    const {
+      condition = 'main', profileData = {}, phaseBNotes = '', location = '',
+      priorTranscript = [], silentResume = false,
+    } = req.body || {};
     // Condition routing (Status Brief §3.3 / Build Plan §6): MAIN gets the full
     // profile + phase-b carry-over + location; BASELINE gets ONLY the chosen
     // career name + location (the chosen scenario is shared; the profile is not).
     const systemPrompt = condition === 'baseline'
       ? buildBaselinePrompt(profileData.career, location)
       : buildSystemPrompt(profileData, phaseBNotes, location);
-    // Admin-initiated RESUME of an interrupted role-play: the saved transcript
-    // is replayed into the model's history so the future self remembers the
-    // earlier conversation, then it re-opens with a brief, natural welcome-back.
+    // RESUME of an interrupted role-play: the saved transcript is replayed into
+    // the model's history so the future self remembers the earlier conversation.
+    //  - silentResume: reconnection after a lost server session (e.g. a server
+    //    restart mid-chat) — seed the history and return immediately, no greeting;
+    //    the participant's next message continues the conversation seamlessly.
+    //  - otherwise (admin resume link): re-open with a brief natural welcome-back.
     if (Array.isArray(priorTranscript) && priorTranscript.length) {
       const messages = priorTranscript
         .filter((m) => m && typeof m.text === 'string' && m.text.trim())
         .map((m) => ({ role: m.role === 'user' ? 'user' : 'assistant', content: m.text }));
+      const sessionId = crypto.randomUUID();
+      if (silentResume) {
+        sessions.set(sessionId, { phase: 'c', systemPrompt, messages });
+        return res.json({ sessionId, resumed: true, opening: null });
+      }
       messages.push({ role: 'user', content: PHASE_C_RESUME_NUDGE });
       const opening = await complete(systemPrompt, messages, { remind: true });
       messages.push({ role: 'assistant', content: opening });
-      const sessionId = crypto.randomUUID();
       sessions.set(sessionId, { phase: 'c', systemPrompt, messages });
       return res.json({ sessionId, opening, resumed: true });
     }

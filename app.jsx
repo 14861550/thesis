@@ -212,13 +212,33 @@ function App() {
     if (ok) restart();
   };
 
-  // Resume-or-restart (Build Plan §13a): restore the saved snapshot, or start fresh.
-  const resumeRun = () => {
+  // Resume-or-restart (Build Plan §13a): restore the saved snapshot, or start
+  // fresh. The snapshot is merged with the SERVER row when one exists — the
+  // per-turn autosaves there hold the mid-chat transcript and the conversation
+  // clock, which the local snapshot doesn't (it only captures completed phases).
+  // That's what lets a refresh/redeploy mid-role-play resume the SAME
+  // conversation at the SAME clock instead of starting over.
+  const resumeRun = async () => {
     const s = pendingSnap || {};
     if (s.profile) setProfile(s.profile);
     if (s.preAnswers) setPreAnswers(s.preAnswers);
-    if (s.phaseB) setPhaseB(s.phaseB);
-    if (s.phaseC) setPhaseC(s.phaseC);
+    let pb = s.phaseB || null;
+    let pc = s.phaseC || null;
+    if (studyId.current) {
+      try {
+        const r = await fetch(PERSIST_BASE + '/api/sessions/' + studyId.current);
+        if (r.ok) {
+          const study = await r.json();
+          if (!pb && study.phaseB && (study.phaseB.career || (study.phaseB.transcript || []).length)) pb = study.phaseB;
+          const serverC = study.phaseC || {};
+          const serverTurns = (serverC.transcript || []).length;
+          const localTurns = ((pc && pc.transcript) || []).length;
+          if (serverTurns > localTurns) pc = serverC;
+        }
+      } catch (e) { /* offline — snapshot only */ }
+    }
+    if (pb) setPhaseB(pb);
+    if (pc && (pc.transcript || []).length) { setPhaseC(pc); resumedC.current = true; }
     if (s.postAnswers) setPostAnswers(s.postAnswers);
     setPendingSnap(null);
     setScreen(s.screen || 'landing');
@@ -329,7 +349,8 @@ function App() {
         <Chat profile={profile} condition={condition} profileData={fullProfile}
           phaseBNotes={phaseBNotesFrom(phaseB)} location={phaseB && phaseB.location} career={phaseB && phaseB.career}
           seedTranscript={(resumedC.current && phaseC && phaseC.transcript) || []}
-          onAutosave={(tr) => apiSaveSession(studyId.current, { phaseC: { transcript: tr } })}
+          seedElapsedSec={(resumedC.current && phaseC && phaseC.durationSec) || 0}
+          onAutosave={(tr, extra) => apiSaveSession(studyId.current, { phaseC: { transcript: tr, ...(extra || {}) } })}
           onComplete={(pc, sid) => {
             setPhaseC(pc); phaseCSessionId.current = sid;
             apiSaveSession(studyId.current, { phaseC: pc });
@@ -366,6 +387,8 @@ function App() {
       {screen === 'free' && (
         <FreeContinuation profile={profile} career={phaseB && phaseB.career} sessionId={phaseCSessionId.current}
           history={(phaseC && phaseC.transcript) || []}
+          condition={condition} profileData={fullProfile} phaseBNotes={phaseBNotesFrom(phaseB)}
+          location={phaseB && phaseB.location}
           onAutosave={(tr) => apiSaveSession(studyId.current, { freeContinuation: { transcript: tr } })}
           onDone={(fc) => { setFreeCont(fc); apiSaveSession(studyId.current, { freeContinuation: fc }); setScreen('done'); }} />
       )}

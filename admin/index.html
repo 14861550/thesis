@@ -9,7 +9,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&family=Geist+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
 
-  <script>(function(){var t=localStorage.getItem('admin-theme');if(t)document.documentElement.setAttribute('data-theme',t);})();</script>
+  <!-- Default theme = dark, matching the participant app's default. -->
+  <script>(function(){var t=localStorage.getItem('admin-theme')||'dark';document.documentElement.setAttribute('data-theme',t);})();</script>
 
   <script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js" crossorigin></script>
@@ -64,9 +65,9 @@
     /* ---------- Buttons ---------- */
     .btn { display: inline-flex; align-items: center; gap: 7px; height: 36px; padding: 0 15px;
       border-radius: var(--radius-pill); font-size: 13.5px; font-weight: 500; line-height: 1;
-      border: 1px solid var(--border-strong); background: transparent; color: var(--ink);
+      border: 1px solid var(--border-strong); background: var(--surface); color: var(--ink);
       transition: background .15s ease, border-color .15s ease, opacity .15s ease; text-decoration: none; }
-    .btn:hover { background: var(--surface-2); text-decoration: none; }
+    .btn:hover { background: var(--surface-2); border-color: var(--muted); text-decoration: none; }
     .btn.pri { background: var(--accent); border-color: var(--accent); color: #fff; }
     .btn.pri:hover { background: var(--accent); opacity: .9; }
     .btn.danger { color: var(--accent-ink); border-color: var(--border-strong); }
@@ -603,6 +604,106 @@ function SimView() {
   );
 }
 
+// --- Launcher: pick a chatbot version (study cell), batch-mint participant
+// links with sequential PIDs, copy the list, send each link to one participant.
+const LAUNCH_CELLS = [
+  { key: 'k-main', label: 'Kangzhi · reflective × main', study: 'kangzhi', rec: 'reflective', cond: 'main', prefix: 'K' },
+  { key: 'k-base', label: 'Kangzhi · reflective × baseline', study: 'kangzhi', rec: 'reflective', cond: 'baseline', prefix: 'K' },
+  { key: 'a-refl', label: 'Andrea · reflective × main', study: 'andrea', rec: 'reflective', cond: 'main', prefix: 'A' },
+  { key: 'a-dir', label: 'Andrea · direct × main', study: 'andrea', rec: 'direct', cond: 'main', prefix: 'A' },
+  { key: 'custom', label: 'Custom combination', custom: true, prefix: 'X' },
+];
+
+function LauncherView() {
+  const [cellKey, setCellKey] = useState('k-main');
+  const [custom, setCustom] = useState({ study: 'kangzhi', rec: 'reflective', cond: 'main' });
+  const [count, setCount] = useState(5);
+  const [prefix, setPrefix] = useState('K');
+  const [start, setStart] = useState(1);
+  const [busy, setBusy] = useState(false);
+  const [out, setOut] = useState([]);
+  const [copied, setCopied] = useState(false);
+  const [err, setErr] = useState(null);
+  const cell = LAUNCH_CELLS.find((c) => c.key === cellKey);
+  const axes = cell.custom ? custom : cell;
+  const pick = (c) => { setCellKey(c.key); setPrefix(c.prefix); setOut([]); setCopied(false); };
+  const generate = async () => {
+    setBusy(true); setErr(null); setCopied(false);
+    const lines = [];
+    try {
+      const n = Math.max(1, Math.min(50, Number(count) || 1));
+      for (let i = 0; i < n; i++) {
+        const pid = prefix.trim() ? prefix.trim().toUpperCase() + String(Number(start) + i).padStart(3, '0') : undefined;
+        const d = await api('/api/admin/sessions', { method: 'POST', body: JSON.stringify({
+          condition: axes.cond, rec: axes.rec, study: axes.study, pid,
+        }) });
+        lines.push({ pid: pid || short(d.id), link: location.origin + d.link });
+      }
+      setOut(lines);
+      if (prefix.trim()) setStart(Number(start) + lines.length);
+    } catch (e) { setErr(e.message); }
+    finally { setBusy(false); }
+  };
+  const copyAll = () => {
+    navigator.clipboard.writeText(out.map((l) => l.pid + '\t' + l.link).join('\n'));
+    setCopied(true);
+  };
+  return (
+    <div>
+      <div className="note">
+        <b>Participant launcher</b> — pick the chatbot version (study cell), mint as many personal links
+        as you need, and send <b>one link to one participant</b>. Each link locks its condition and carries
+        a sequential participant ID; the session row appears under Sessions the moment they consent.
+      </div>
+      <div className="panel" style={{ marginBottom: 16 }}>
+        <h3>1 · Chatbot version</h3>
+        <div className="row" style={{ marginBottom: 10 }}>
+          {LAUNCH_CELLS.map((c) => (
+            <button key={c.key} className={'btn' + (cellKey === c.key ? ' pri' : '')} onClick={() => pick(c)}>{c.label}</button>
+          ))}
+        </div>
+        {cell.custom && (
+          <div className="row" style={{ marginBottom: 4 }}>
+            <label>Study&nbsp;<input type="text" value={custom.study} onChange={(e) => setCustom({ ...custom, study: e.target.value })} style={{ width: 100 }} /></label>
+            <label>Rec&nbsp;
+              <select value={custom.rec} onChange={(e) => setCustom({ ...custom, rec: e.target.value })}>
+                <option value="reflective">reflective</option><option value="direct">direct</option><option value="guide">guide</option>
+              </select>
+            </label>
+            <label>Cond&nbsp;
+              <select value={custom.cond} onChange={(e) => setCustom({ ...custom, cond: e.target.value })}>
+                <option value="main">main</option><option value="baseline">baseline</option>
+              </select>
+            </label>
+          </div>
+        )}
+        <h3 style={{ marginTop: 14 }}>2 · How many participants</h3>
+        <div className="row">
+          <label>Links <input type="number" min="1" max="50" value={count} onChange={(e) => setCount(e.target.value)} style={{ width: 64 }} /></label>
+          <label>PID prefix <input type="text" value={prefix} onChange={(e) => setPrefix(e.target.value)} style={{ width: 56 }} /></label>
+          <label>from # <input type="number" min="1" value={start} onChange={(e) => setStart(e.target.value)} style={{ width: 72 }} /></label>
+          <button className="btn pri" disabled={busy} onClick={generate}>{busy ? 'Generating…' : 'Generate links'}</button>
+          {err && <span className="err-inline">{err}</span>}
+        </div>
+      </div>
+      {out.length > 0 && (
+        <div className="panel">
+          <h3>{out.length} link{out.length > 1 ? 's' : ''} · {axes.study} · {axes.rec} × {axes.cond}</h3>
+          <div className="row" style={{ marginBottom: 10 }}>
+            <button className="btn" onClick={copyAll}>{copied ? 'Copied ✓' : 'Copy all (PID + link)'}</button>
+          </div>
+          <div className="kv kv-scroll" style={{ gridTemplateColumns: 'max-content 1fr', maxHeight: 380 }}>
+            {out.map((l) => [
+              <b key={l.pid + 'k'}>{l.pid}</b>,
+              <span key={l.pid + 'v'}><a href={l.link} target="_blank" rel="noreferrer">{l.link}</a></span>,
+            ])}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function DescriptivesView() {
   const [studies, setStudies] = useState(null);
   const [err, setErr] = useState(null);
@@ -692,6 +793,7 @@ function App() {
         <span className="eyebrow-tag">Study admin</span>
         <div className="tabs">
           <div className={'tab' + (tab === 'sessions' ? ' on' : '')} onClick={() => setTab('sessions')}>Sessions</div>
+          <div className={'tab' + (tab === 'launch' ? ' on' : '')} onClick={() => setTab('launch')}>Launcher</div>
           <div className={'tab' + (tab === 'desc' ? ' on' : '')} onClick={() => setTab('desc')}>Descriptives</div>
           <div className={'tab' + (tab === 'eval' ? ' on' : '')} onClick={() => setTab('eval')}>Eval runs</div>
           <div className={'tab' + (tab === 'sim' ? ' on' : '')} onClick={() => setTab('sim')}>Simulations</div>
@@ -703,7 +805,7 @@ function App() {
         <button className="btn" onClick={logout}>Sign out</button>
       </header>
       <DbHealthBanner />
-      <main>{tab === 'sessions' ? <SessionsView /> : tab === 'desc' ? <DescriptivesView /> : tab === 'eval' ? <EvalView /> : <SimView />}</main>
+      <main>{tab === 'sessions' ? <SessionsView /> : tab === 'launch' ? <LauncherView /> : tab === 'desc' ? <DescriptivesView /> : tab === 'eval' ? <EvalView /> : <SimView />}</main>
     </div>
   );
 }
