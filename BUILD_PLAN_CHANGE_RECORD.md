@@ -281,6 +281,39 @@ explicit instruction from Kangzhi that supersedes the v5.1 as-built text.
   bar exists) and cover the hub; a dedicated probe walks hub → new career →
   capless exploration chat → back to hub.
 
+## Round 7 (2026-06-12) — career sanity check, preview mode, Recruit tab, resume continuity
+
+- **§7 stage-B lock-in gains a career sanity check** [USER-ORDERED] [DEPLOYED]:
+  free-typed careers are judged by the model via the new `/api/validate-career`
+  ("haha" can no longer become a future self); an inline hint asks for a re-entry.
+  FAIL-OPEN — if the check itself errors, the participant is never blocked.
+  Card-chosen titles skip the check (they came from the model). Live-verified:
+  "haha"/"asdfgh" rejected with friendly hints; "data analyst"/"marine
+  biologist" pass. Note for v5.2 §7: the lock-in is no longer purely client-side.
+- **`?preview=1` researcher test drive** [USER-ORDERED] [DEPLOYED]: opened from
+  the admin Recruit tab per combination — creates NO session row, performs NO
+  autosaves/snapshots, and every gate (consent box, avatar name, all survey
+  pages, lock-in) can be skipped unfilled; a persistent PREVIEW badge shows.
+  Never sent to participants. Probed: zero API writes across the flow.
+- **§14 admin "Launcher" → "Recruit"**, moved first and made the default tab
+  [USER-ORDERED] [DEPLOYED]; generated link batches now persist in the browser
+  (localStorage) across tab switches and reloads, each with copy-all and remove;
+  a "Test drive this version ↗" button opens the selected combo in preview mode.
+- **§13a resume continuity completed** [USER-ORDERED] [DEPLOYED]: the paged
+  surveys remember their page index across refreshes (answers were restored but
+  the page reset to 1 of 9, reading as "starting over"); stage-B chats now
+  resume seeded into a fresh model session exactly like stage C (silently, no
+  greeting) — a refresh mid-recommendation-chat continues the same conversation.
+- **§6 clarification recorded (user question):** baseline profile isolation
+  re-verified against both documents — Build Plan §6 "cond=baseline → stage C
+  receives the chosen career name + chosen location, and nothing else" (marked
+  "the manipulation — do not get this wrong") and Brief §3.3/§3.4 ("does NOT
+  receive the pre-survey questionnaire answers, does NOT receive the phase-b
+  conversation content… the baseline never receives it in phase c"). Stage A/B
+  are identical experiences in both arms and stage B's guide uses the profile
+  for BOTH; only the stage-C bot's inputs differ. Code matches the docs; no
+  change made.
+
 ## Verification log (2026-06-11)
 
 - `npm test` (flow / reconstruct / admin-gate / db) green after every batch; admin

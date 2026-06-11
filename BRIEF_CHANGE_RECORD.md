@@ -139,6 +139,37 @@ the measured flow — all instruments are completed before the hub is reachable.
   visually true. Logging separation unchanged (free turns recorded separately,
   outside the main analysis).
 
+### 1.6 Career lock-in sanity check (2026-06-12)
+
+The stage-B lock-in now model-validates free-typed careers before the role-play
+can start: gibberish/jokes ("haha") are rejected with a friendly inline prompt to
+name a real career. The check is fail-open (an unreachable validator never blocks
+a participant) and is skipped for card-chosen titles, which the model itself
+proposed. Closes a validity hole: a nonsense "career" would have produced an
+uninterpretable role-play exposure. Applies to the post-study exploration picker
+too.
+
+### 1.7 Baseline isolation re-confirmed (2026-06-12, researcher question)
+
+Re-checked against Brief v4.1 §3.3/§3.4 and Build Plan v5.1 §6: the baseline
+stage-C bot receives the chosen career + negotiated location and NOTHING else —
+no pre-survey answers, no stage-B content. (Both arms experience identical stages
+A and B, and the stage-B guide uses the profile in BOTH conditions; the isolation
+applies to what the stage-C role-play bot is told.) Rationale in §3.3: profile-
+grounding is itself part of the manipulation under test. The deployed code
+matches the documents.
+
+## 2a. Researcher tooling (fielding)
+
+- Admin "Recruit" tab (first tab): pick the study cell, batch-mint sequential-PID
+  participant links (batches persist in the browser), one link per participant.
+- Preview test drive (`?preview=1`): researchers can click through the entire
+  flow with nothing saved and all gates skippable — for checking a condition
+  before sending links. A visible PREVIEW badge prevents confusion with real
+  runs; preview runs cannot contaminate the dataset (no session row is created).
+- Refresh-resume continuity: survey page position and both chat conversations
+  survive refreshes and redeploys (model history re-seeded server-side).
+
 ## 3. Measurement & data integrity (what did NOT change)
 
 Instrument wording, scales, anchors, item order (TIPI-10, O*NET values, RIASEC,
