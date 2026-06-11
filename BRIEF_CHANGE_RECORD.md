@@ -51,9 +51,17 @@ Flag for supervisor awareness.
    only when it grows out of what was just said; abrupt interview-style pivots
    (e.g. "What stopped you in the past from walking away from something hard?")
    are explicitly forbidden; if no question arises naturally, the reply ends with
-   an opening instead. Rationale: pilot user experience — abrupt probes broke
+   an opening instead. Second revision (same day): every question must additionally
+   be BRIDGED into by a connecting sentence ("...which is making me wonder —") so
+   it reads as caused by the preceding thought — bare questions, even on-topic
+   ones, still felt abrupt. Rationale: pilot user experience — abrupt probes broke
    immersion and felt obligating. The KEEP-LEARNING goals (understanding the
    participant's present) are unchanged; only the delivery is constrained.
+
+   *Note on the time anchor:* the dates are computed at the moment each
+   conversation starts (`new Date()` in the prompt builder) — never a fixed
+   "June 2026". Every session's prompt names the actual current month/year and
+   its +10-year counterpart.
 
 ### 1.3 Participant-facing stimulus: "Ideas to ask" cards (new, both conditions)
 
@@ -94,6 +102,9 @@ age? · 18. How do I know if this career is right for me?
   chrome; legends/hints lightened; blocks given air. The IOS instruction's key
   phrase is emphasized in capitals (CLOSE AND OVERLAPPING) to match the FSCS items
   — typographic emphasis only; instrument wording, scales and anchors untouched.
+  Second pass (same day): every survey page opens with a real serif heading and
+  the task instruction in body ink, giving each page an unmistakable reading
+  entry point.
 - **Latency honesty**: after ~9 s of waiting the typing indicator adds "Taking a
   moment — a thoughtful reply can take a little while." (calm, no pressure cues).
 - **Free continuation** now *shows* the full stage-C conversation above a "Your
@@ -121,10 +132,11 @@ CIP-CCA placeholders (still pending verbatim items — unchanged blocker).
   device and an interrupted role-play is replayed into the model so the future
   self keeps its memory. *Analysis note:* resumed runs restart `durationSec` at
   the resume point; `turnCount` is cumulative; transcripts are cumulative.
-- **Database misconfiguration diagnosed** (live `DATABASE_URL` pointed at
-  localhost): admin now states the cause and the exact Railway fix
-  (`${{Postgres.DATABASE_URL}}` reference). Until fixed, sessions are in-memory
-  only — DO NOT field before `/healthz` shows `"db": true`.
+- **Database misconfiguration diagnosed and RESOLVED** (2026-06-11 evening): the
+  live `DATABASE_URL` pointed at localhost; Kangzhi set it to the
+  `${{Postgres.DATABASE_URL}}` reference. `/healthz` now shows `"db": true`;
+  sessions persist; the full admin surface (list, detail, exports, descriptives,
+  resume links) verified against real data.
 - **Credential hygiene**: `ADMIN_TOKEN`, `RESULTS_TOKEN` and the Postgres password
   have each appeared in chat during development — rotate all three before
   fielding (also a v4.1 §6 requirement post-study).

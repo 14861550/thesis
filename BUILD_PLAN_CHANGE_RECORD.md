@@ -183,6 +183,34 @@ explicit instruction from Kangzhi that supersedes the v5.1 as-built text.
   `ADMIN_TOKEN`, `RESULTS_TOKEN`, and the DB password before fielding — all have
   appeared in chat.
 
+## Round 4 (2026-06-11, evening) — post-DB-fix verification + refinements
+
+- **§8 TIME anchoring clarified**: the dates in both stage-C prompts are COMPUTED
+  AT CONVERSATION TIME — `timeAnchor()` runs `new Date()` inside the prompt
+  builders, which execute when each phase-c session is created. Nothing is
+  hardcoded: a conversation started in July 2026 says "July 2026 → July 2036";
+  one in 2027 says 2027 → 2037. (Documented in-code; the earlier record's
+  "June 2026" was an example of the current month, not a constant.)
+- **§8 Question bridging strengthened (both arms + per-call reminder)**
+  [USER-ORDERED] [DEPLOYED]: a question must be led into by a connecting sentence
+  that grows out of the previous thought ("...which is making me wonder —") so it
+  reads as caused by the sentence before it; bare/cold questions forbidden.
+  Live-verified: replies to "i'm stressed about exams" bridge before asking.
+- **§7 Screen 7**: the composer-footer clock is REMOVED again [USER-ORDERED] —
+  with the zoom fix the header clock is always visible, and one clock is calmer.
+  v5.2 should describe the header clock only.
+- **§16 survey hierarchy** [USER-ORDERED] [DEPLOYED]: every survey page now opens
+  with a real serif page heading (`.sv-title`, 27 px) and the task instruction in
+  body ink (`.sv-instruction`, 15.5 px) instead of a tiny chip + grey line — a
+  clear reading entry point (the complaint: "How important is each of these…" was
+  grey and easy to miss).
+- **§14 admin verified against the live database** (user fixed `DATABASE_URL` →
+  `${{Postgres.DATABASE_URL}}`): `/healthz` shows `db: true` (host
+  `postgres.railway.internal`, plaintext auto-detected); sessions list/detail,
+  JSON export (2 real studies, all 8 sections), descriptives with real means,
+  eval-runs and simulations tabs (clean empty states), Resume links — all
+  working; the DB banner is gone.
+
 ## Verification log (2026-06-11)
 
 - `npm test` (flow / reconstruct / admin-gate / db) green after every batch; admin
