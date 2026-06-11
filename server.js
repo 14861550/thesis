@@ -19,28 +19,40 @@ import crypto from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import Anthropic from '@anthropic-ai/sdk';
-import { buildPhaseBPrompt, buildSystemPrompt, buildBaselinePrompt } from './lib/prompt.js';
-import { dbEnabled, initSchema } from './lib/db.js';
+import { pickPhaseBPrompt, buildSystemPrompt, buildBaselinePrompt } from './lib/prompt.js';
+import { dbEnabled, initSchema, probe } from './lib/db.js';
 import { mountStudyRoutes } from './lib/study_routes.js';
 import { mountAdminRoutes } from './lib/admin_routes.js';
 import { mountResultsRoutes } from './lib/results_routes.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-const MODEL = 'claude-sonnet-4-6';
+// --- Model provider (Build Plan §12: "the model is a single config value") ---
+// Two interchangeable backends, chosen by env. The participant chat is the ONLY
+// thing this governs; the eval pipeline / silicon cohort keep their own client.
+//   • UvA AI Chat proxy (gpt-5.1, OpenAI-compatible) — set LLM_BASE_URL + UVA_API_TOKEN
+//   • Anthropic Claude (the original path)           — set ANTHROPIC_API_KEY
+const LLM_BASE_URL = (process.env.LLM_BASE_URL || '').replace(/\/+$/, '');
+const UVA_API_TOKEN = process.env.UVA_API_TOKEN || '';
+const USE_PROXY = Boolean(LLM_BASE_URL && UVA_API_TOKEN);
+const MODEL = process.env.MODEL_ID || (USE_PROXY ? 'gpt-5.1' : 'claude-sonnet-4-6');
+const TEMPERATURE = Number(process.env.LLM_TEMPERATURE ?? 0.9);
 const MAX_TOKENS = 1024;
+const REQUEST_TIMEOUT_MS = Number(process.env.LLM_TIMEOUT_MS ?? 90000);
 const PHASE_B_NUDGE =
   '(Begin the recommendation conversation now — greet me warmly and ask your first question.)';
 const PHASE_C_NUDGE =
   '(Begin the conversation now — send your first message to me as my future self.)';
 
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const anthropic = USE_PROXY ? null : new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 /** sessionId -> { phase: 'b'|'c', systemPrompt, messages: [{ role, content }] } */
 const sessions = new Map();
 
-/** Call Claude with a system prompt + message history, return assistant text. */
+/** Call the configured model with a system prompt + history; return assistant text. */
 async function complete(systemPrompt, messages) {
+  if (USE_PROXY) return completeOpenAI(systemPrompt, messages);
   const res = await anthropic.messages.create({
     model: MODEL,
     max_tokens: MAX_TOKENS,
@@ -48,6 +60,42 @@ async function complete(systemPrompt, messages) {
     messages,
   });
   return res.content.filter((b) => b.type === 'text').map((b) => b.text).join('').trim();
+}
+
+/** OpenAI-compatible chat-completions (UvA proxy). Retries 429/5xx with backoff;
+ *  auth failures surface immediately (not retried). */
+async function completeOpenAI(systemPrompt, messages) {
+  const body = {
+    model: MODEL,
+    messages: [{ role: 'system', content: systemPrompt }, ...messages],
+    temperature: TEMPERATURE,
+    max_tokens: MAX_TOKENS,
+  };
+  let lastErr = 'unknown';
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), REQUEST_TIMEOUT_MS);
+    try {
+      const r = await fetch(`${LLM_BASE_URL}/chat/completions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${UVA_API_TOKEN}` },
+        body: JSON.stringify(body),
+        signal: ctrl.signal,
+      });
+      if (r.status === 401 || r.status === 403) throw new Error('model auth rejected — check UVA_API_TOKEN');
+      if (r.status === 429 || r.status >= 500) { lastErr = `upstream ${r.status}`; await sleep(1500 * (attempt + 1)); continue; }
+      if (!r.ok) throw new Error(`upstream ${r.status}`);
+      const data = await r.json();
+      return (data?.choices?.[0]?.message?.content || '').trim();
+    } catch (e) {
+      if (e.message && e.message.includes('auth rejected')) throw e;
+      lastErr = e.name === 'AbortError' ? 'timeout' : (e.message || 'network');
+      await sleep(1500 * (attempt + 1));
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+  throw new Error(`model unavailable after retries (${lastErr})`);
 }
 
 /** Create a session, seed it with a nudge, fetch the opener, return {sessionId, opening}. */
@@ -104,12 +152,27 @@ app.use((req, res, next) => {
   next();
 });
 
+// --- Health (deploy verification + uptime checks; Build Plan §13b) ---------
+// `db` is a REAL connection probe (SELECT 1), not just "is DATABASE_URL set",
+// so a misconfigured database shows up here instead of silently losing data.
+app.get(['/healthz', '/api/health'], async (req, res) => {
+  const db = await probe();
+  res.json({
+    ok: true,
+    model: MODEL,
+    provider: USE_PROXY ? 'uva-proxy' : 'anthropic',
+    db: db.ok,
+    db_detail: db,
+  });
+});
+
 // --- Phase B: shared recommendation guide ---------------------------------
 
 app.post('/api/phase-b/session', async (req, res) => {
   try {
-    const { profileData = {} } = req.body || {};
-    const out = await openSession('b', buildPhaseBPrompt(profileData), PHASE_B_NUDGE);
+    // `rec` (guide | reflective | direct) selects the Phase-B prompt (Build Plan §6).
+    const { profileData = {}, rec = 'guide' } = req.body || {};
+    const out = await openSession('b', pickPhaseBPrompt(rec, profileData), PHASE_B_NUDGE);
     res.json(out);
   } catch (err) {
     console.error('POST /api/phase-b/session failed:', err?.message || err);
@@ -121,12 +184,13 @@ app.post('/api/phase-b/session', async (req, res) => {
 
 app.post('/api/phase-c/session', async (req, res) => {
   try {
-    const { condition = 'main', profileData = {}, phaseBNotes = '' } = req.body || {};
-    // Condition routing (Status Brief §3.3): MAIN gets the full profile + phase-b
-    // carry-over; BASELINE gets ONLY the chosen career name.
+    const { condition = 'main', profileData = {}, phaseBNotes = '', location = '' } = req.body || {};
+    // Condition routing (Status Brief §3.3 / Build Plan §6): MAIN gets the full
+    // profile + phase-b carry-over + location; BASELINE gets ONLY the chosen
+    // career name + location (the chosen scenario is shared; the profile is not).
     const systemPrompt = condition === 'baseline'
-      ? buildBaselinePrompt(profileData.career)
-      : buildSystemPrompt(profileData, phaseBNotes);
+      ? buildBaselinePrompt(profileData.career, location)
+      : buildSystemPrompt(profileData, phaseBNotes, location);
     const out = await openSession('c', systemPrompt, PHASE_C_NUDGE);
     res.json(out);
   } catch (err) {
@@ -206,17 +270,23 @@ const PORT = process.env.PORT || 3000;
 async function boot() {
   if (dbEnabled) {
     try {
-      await initSchema();
-      console.log('DB schema ready (persistence ON).');
+      const r = await initSchema();
+      console.log(r.ok
+        ? `DB schema ready (persistence ON; ${r.ran} statements).`
+        : `⚠  DB schema applied with ${r.failures.length} failed statement(s) — see warnings above.`);
     } catch (err) {
-      console.error('⚠  DB schema init failed — running WITHOUT persistence:', err?.message || err);
+      console.error('⚠  DB unreachable — sessions will NOT persist. Check DATABASE_URL / DATABASE_SSL:', err?.message || err);
     }
   } else {
     console.warn('⚠  DATABASE_URL not set — sessions are in-memory only (no persistence).');
   }
   app.listen(PORT, () => {
-    if (!process.env.ANTHROPIC_API_KEY) {
-      console.warn('⚠  ANTHROPIC_API_KEY is not set — API calls will fail. Add it to .env');
+    if (USE_PROXY) {
+      console.log(`Model: ${MODEL} via UvA proxy (${LLM_BASE_URL}).`);
+    } else if (!process.env.ANTHROPIC_API_KEY) {
+      console.warn('⚠  No model configured — set LLM_BASE_URL+UVA_API_TOKEN (gpt-5.1) or ANTHROPIC_API_KEY. Chat will fail.');
+    } else {
+      console.log(`Model: ${MODEL} via Anthropic.`);
     }
     if (!process.env.ADMIN_TOKEN) {
       console.warn('⚠  ADMIN_TOKEN is not set — the /admin dashboard is disabled.');

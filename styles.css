@@ -463,3 +463,108 @@ textarea.text-input { resize: vertical; min-height: 96px; line-height: 1.55; }
 
 /* Let long survey / phase-b pages scroll from the top instead of clipping */
 .flow-body:has(.sv-wrap), .flow-body:has(.pb-wrap) { align-items: flex-start; overflow-y: auto; }
+
+/* ====================================================================
+   Comfort & display settings (participant accessibility — Build Plan §16/§16a)
+   Driven by data attributes on <html> set by ComfortSettings. The CSS is
+   px-based, so text size uses `zoom` (supported in all current engines).
+   ==================================================================== */
+html[data-size="md"] { zoom: 1.06; }
+html[data-size="lg"] { zoom: 1.12; }
+html[data-size="xl"] { zoom: 1.20; }
+
+html[data-spacing="roomy"] .bubble p,
+html[data-spacing="roomy"] .sv-intro,
+html[data-spacing="roomy"] .consent-body,
+html[data-spacing="roomy"] .consent-body p,
+html[data-spacing="roomy"] .hero-sub,
+html[data-spacing="roomy"] .sv-scale-text { line-height: 1.9; }
+
+html[data-width="wide"] .chat-thread,
+html[data-width="wide"] .sv-wrap,
+html[data-width="wide"] .pb-wrap { max-width: 900px; }
+html[data-width="narrow"] .chat-thread,
+html[data-width="narrow"] .sv-wrap,
+html[data-width="narrow"] .pb-wrap { max-width: 600px; }
+
+html[data-motion="reduced"] *,
+html[data-motion="reduced"] *::before,
+html[data-motion="reduced"] *::after {
+  animation-duration: .001ms !important; animation-iteration-count: 1 !important;
+  transition-duration: .001ms !important; scroll-behavior: auto !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .001ms !important; transition-duration: .001ms !important; }
+}
+
+.comfort-fab {
+  position: fixed; right: 18px; bottom: 18px; z-index: 60;
+  width: 44px; height: 44px; border-radius: 999px;
+  border: 1px solid var(--border-strong); background: var(--surface); color: var(--ink);
+  box-shadow: var(--shadow-pop); cursor: pointer; font-size: 16px; font-weight: 600;
+  display: flex; align-items: center; justify-content: center;
+}
+.comfort-panel {
+  position: fixed; right: 18px; bottom: 70px; z-index: 60; width: 268px;
+  background: var(--surface); border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md); box-shadow: var(--shadow-pop); padding: 14px 14px 6px;
+}
+.comfort-panel h4 { margin: 0 0 12px; font-size: 13px; color: var(--ink); }
+.comfort-row { margin-bottom: 12px; }
+.comfort-row .lbl { font-size: 10.5px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin-bottom: 5px; }
+.comfort-seg { display: flex; gap: 4px; }
+.comfort-seg button {
+  flex: 1; min-width: 0; padding: 6px 4px; font-size: 12px;
+  border: 1px solid var(--border); background: var(--surface-2); color: var(--ink-2);
+  border-radius: 7px; cursor: pointer;
+}
+.comfort-seg button.on { background: var(--accent-soft); color: var(--accent-ink); border-color: var(--accent); }
+
+/* Reading font (comfort setting; §16: "a calm serif for the future-self's voice").
+   Serif applies to long-form reading text — chat bubbles, intros, consent — not
+   to controls or labels. */
+html[data-font="serif"] .bubble,
+html[data-font="serif"] .sv-intro,
+html[data-font="serif"] .consent-body,
+html[data-font="serif"] .pause-note,
+html[data-font="serif"] .hero-sub { font-family: var(--font-serif); }
+
+/* Persistent restart chrome (§0) — quiet, bottom-left, away from the comfort fab. */
+.restart-fab {
+  position: fixed; left: 18px; bottom: 18px; z-index: 60;
+  padding: 8px 14px; border-radius: 999px; font-size: 12.5px;
+  border: 1px solid var(--border-strong); background: var(--surface); color: var(--muted);
+  box-shadow: var(--shadow-card); cursor: pointer;
+}
+.restart-fab:hover { color: var(--ink); background: var(--surface-2); }
+
+/* Stage-C header running clock (§7) — counts up; quiet, never alarming (§16). */
+.chat-header .clock { font-family: var(--font-mono); font-size: 12px; color: var(--muted); letter-spacing: .04em; }
+
+/* Autosave indicator (§13b). */
+.composer-foot .save-note { color: var(--muted-2); }
+
+/* Mobile full-height (§16c): dvh tracks the real visible viewport on iOS/Android. */
+.chat-app { height: 100dvh; }
+.app { min-height: 100dvh; }
+
+/* v5.1 — original-instrument rendering: verbatim anchor legend + item stem */
+.sv-anchors {
+  font-size: 11.5px; color: var(--muted); line-height: 1.6;
+  padding: 8px 10px; margin-bottom: 10px;
+  background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-sm);
+}
+.sv-stem { font-size: 14px; font-weight: 500; color: var(--ink); margin: 0 0 10px; }
+
+/* The floating comfort/restart buttons must never cover bottom-bar controls.
+   Lift them above a chat composer (chat / phase-B / free) and above the
+   survey/pause nav bar (Back / Continue). :has() is supported in all current
+   browsers; older ones simply keep the default bottom corner. */
+body:has(.flow-foot) .comfort-fab { bottom: 84px; right: 20px; }
+body:has(.flow-foot) .restart-fab { bottom: 84px; left: 20px; }
+body:has(.composer-wrap) .comfort-fab { bottom: 100px; right: 20px; }
+body:has(.composer-wrap) .restart-fab { bottom: 100px; left: 20px; }
+@media (max-width: 520px) {
+  body:has(.composer-wrap) .comfort-fab,
+  body:has(.composer-wrap) .restart-fab { bottom: 108px; }
+}

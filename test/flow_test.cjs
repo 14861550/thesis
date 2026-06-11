@@ -100,15 +100,21 @@ const ok = (msg) => console.log('✓ ' + msg);
   click(byText('Continue')); await tick();
   ok('Avatar set');
 
-  // 4. Pre-survey (5 pages)
-  for (let p = 0; p < 5; p++) {
+  // 4. Pre-survey (6 pages — v5.1: TIPI, values, RIASEC, future-self, CDSE+CIP, demographics)
+  for (let p = 0; p < 6; p++) {
     if (!window.document.querySelector('.sv-wrap')) fail(`Pre-survey page ${p + 1} missing`);
     autofillCurrent(); await tick();
     const btn = byText('Done') || byText('Continue');
     if (btn.disabled) fail(`Pre-survey page ${p + 1} did not validate (button disabled)`);
     click(btn); await tick();
   }
-  ok('Pre-survey completed (5 pages)');
+  ok('Pre-survey completed (6 pages)');
+
+  // 4b. Pause A→B ("Take a breath") — advances only on Continue
+  await tick();
+  if (!byText('Continue')) fail('Pause A→B did not render');
+  click(byText('Continue')); await tick(60);
+  ok('Pause A→B advanced on Continue');
 
   // 5. Phase B
   await tick(60);
@@ -128,21 +134,38 @@ const ok = (msg) => console.log('✓ ' + msg);
   click(stepBtn); await tick(80);
   ok('Phase B completed (card selected + career locked: Data analyst)');
 
+  // 5b. Pause B→C ("Begin" starts the phase-c clock)
+  if (!byText('Begin')) fail('Pause B→C did not render');
+  click(byText('Begin')); await tick(80);
+  ok('Pause B→C advanced on Begin');
+
   // 6. Phase C role-play
   if (!window.document.querySelector('.chat-app')) fail('Phase C chat did not render');
   if (!/in ten years|it's me/i.test(window.document.body.textContent)) fail('Phase C opener missing');
   ok('Phase C rendered with model opener');
   click(byText('Finish')); await tick();
 
-  // 7. Post-survey (4 pages)
-  for (let p = 0; p < 4; p++) {
+  // 6b. Pause C→POST ("Thank you") — advances only on Continue
+  if (!byText('Continue')) fail('Pause C→POST did not render');
+  click(byText('Continue')); await tick();
+  ok('Pause C→POST advanced on Continue');
+
+  // 7. Post-survey (5 pages — v5.1: future-self, CDSE+CIP post, manip, 2 open-ended, opt-in)
+  for (let p = 0; p < 5; p++) {
     if (!window.document.querySelector('.sv-wrap')) fail(`Post-survey page ${p + 1} missing`);
     autofillCurrent(); await tick();
     const btn = byText('Done') || byText('Continue');
     if (btn.disabled) fail(`Post-survey page ${p + 1} did not validate`);
     click(btn); await tick();
   }
-  ok('Post-survey completed (4 pages)');
+  ok('Post-survey completed (5 pages)');
+
+  // 7b. Free continuation (optional, logged separately) — finish to reach Closure
+  await tick();
+  const doneBtn = byText("I'm done");
+  if (!doneBtn) fail('Free continuation screen did not render');
+  click(doneBtn); await tick();
+  ok('Free continuation screen rendered + closed');
 
   // 8. Closure + data export
   if (!/Thank you/i.test(window.document.body.textContent)) fail('Closure did not render');
