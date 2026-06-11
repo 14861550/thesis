@@ -53,13 +53,21 @@ const anthropic = USE_PROXY ? null : new Anthropic({ apiKey: process.env.ANTHROP
 /** sessionId -> { phase: 'b'|'c', systemPrompt, messages: [{ role, content }] } */
 const sessions = new Map();
 
+// Phase-C only: re-asserted on EVERY call because as a conversation grows, a
+// length rule stated once at the top of a long system prompt loses out to the
+// model's instinct to paint full scenes (live-tested on gpt-5.1: a casual
+// question still drew 300+ words). Identical across main/baseline; Phase B
+// (incl. Andrea's prompts) is never touched.
+const BREVITY_REMINDER =
+  'Length check before sending: at most 2 short paragraphs, roughly 60-110 words, at most one question. If your draft is longer, cut it.';
+
 /** Call the configured model with a system prompt + history; return assistant text. */
-async function complete(systemPrompt, messages) {
-  if (USE_PROXY) return completeOpenAI(systemPrompt, messages);
+async function complete(systemPrompt, messages, { remind = false } = {}) {
+  if (USE_PROXY) return completeOpenAI(systemPrompt, messages, { remind });
   const res = await anthropic.messages.create({
     model: MODEL,
     max_tokens: MAX_TOKENS,
-    system: systemPrompt,
+    system: remind ? `${systemPrompt}\n\n${BREVITY_REMINDER}` : systemPrompt,
     messages,
   });
   return res.content.filter((b) => b.type === 'text').map((b) => b.text).join('').trim();
@@ -67,10 +75,17 @@ async function complete(systemPrompt, messages) {
 
 /** OpenAI-compatible chat-completions (UvA proxy). Retries 429/5xx with backoff;
  *  auth failures surface immediately (not retried). */
-async function completeOpenAI(systemPrompt, messages) {
+async function completeOpenAI(systemPrompt, messages, { remind = false } = {}) {
   const body = {
     model: MODEL,
-    messages: [{ role: 'system', content: systemPrompt }, ...messages],
+    // The trailing system reminder rides at the END of the turn list so it is
+    // the most recent instruction the model sees (recency beats a rule buried
+    // in a long system prompt). Call-time only — never stored in the session.
+    messages: [
+      { role: 'system', content: systemPrompt },
+      ...messages,
+      ...(remind ? [{ role: 'system', content: BREVITY_REMINDER }] : []),
+    ],
     temperature: TEMPERATURE,
     max_tokens: MAX_TOKENS,
   };
@@ -108,7 +123,7 @@ async function completeOpenAI(systemPrompt, messages) {
 /** Create a session, seed it with a nudge, fetch the opener, return {sessionId, opening}. */
 async function openSession(phase, systemPrompt, nudge) {
   const messages = [{ role: 'user', content: nudge }];
-  const opening = await complete(systemPrompt, messages);
+  const opening = await complete(systemPrompt, messages, { remind: phase === 'c' });
   messages.push({ role: 'assistant', content: opening });
   const sessionId = crypto.randomUUID();
   sessions.set(sessionId, { phase, systemPrompt, messages });
@@ -217,7 +232,7 @@ app.post('/api/chat', async (req, res) => {
 
   session.messages.push({ role: 'user', content: text });
   try {
-    const reply = await complete(session.systemPrompt, session.messages);
+    const reply = await complete(session.systemPrompt, session.messages, { remind: session.phase === 'c' });
     session.messages.push({ role: 'assistant', content: reply });
     // Phase B proposes five career directions as a structured block -> cards.
     if (session.phase === 'b') {
@@ -243,7 +258,7 @@ app.post('/api/regenerate', async (req, res) => {
   }
   const popped = session.messages.pop();
   try {
-    const reply = await complete(session.systemPrompt, session.messages);
+    const reply = await complete(session.systemPrompt, session.messages, { remind: session.phase === 'c' });
     session.messages.push({ role: 'assistant', content: reply });
     res.json({ reply });
   } catch (err) {
