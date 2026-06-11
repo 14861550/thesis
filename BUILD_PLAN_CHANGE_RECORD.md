@@ -245,6 +245,42 @@ explicit instruction from Kangzhi that supersedes the v5.1 as-built text.
   Live-verified by minting and deleting three TST links.
 - `lib/sessions.js` rec fallback `guide` → `reflective` (consistency).
 
+## Round 6 (2026-06-12) — timeline discipline, survey pagination/heading, post-study exploration
+
+- **§8 TIMELINE DISCIPLINE (both arms)** [USER-ORDERED] [DEPLOYED]: invented
+  memories must be dated AFTER the user's current age/study year (the +10-year
+  window); the time before their "now" may only be referenced through what they
+  themselves said or light generic textures, never as fabricated specific events
+  (a third-year knows what actually happened in year 2 — one contradicting
+  "shared memory" shatters the role-play). Baseline (which has no profile) keeps
+  every "back then" reference generic and places its invented history strictly
+  ahead. Live-verified with a 22-year-old third-year profile: main anchored its
+  key memory "the summer between third year and the master"; baseline stayed
+  undated and generic.
+- **§7/§16 survey pages** [USER-ORDERED] [DEPLOYED]: centered, oversized serif
+  page heading (clamp 30-38px) + 16.5px instruction — the page topic is now the
+  unmistakable entry point; pages split to ~5 items each (TIPI 5+5 with the
+  verbatim original instruction on BOTH pages and "Part 1/2 of 2" eyebrows;
+  IOS+FSCS circles and vividness now separate pages; CDSE-SA and CIP-CCA one
+  page each). Pre-survey 6 → 9 pages, post-survey 5 → 7. Instruments,
+  item wording and order unchanged — pagination and typography only (v5.2 must
+  update §7's "6 paged blocks" / §10 page descriptions).
+- **§7 Screen 8 → post-study exploration hub** [USER-ORDERED] [DEPLOYED]: the
+  post-survey now lands on a hub ("Keep exploring, if you like") with three
+  choices — continue the same free conversation, STEP INTO A DIFFERENT CAREER
+  (a fresh stage-B pick followed by an exploration role-play; repeatable without
+  limit; switchable mid-chat via "Other careers"/"Choose another career"), or
+  finish to Closure. Exploration role-plays use the full main prompt for the best
+  experience (all measurements are already collected), have no clock and no
+  20/30-min caps, and store under `freeContinuation.explorations`
+  ({career, location, phaseBTranscript, transcript, durationSec, turnCount, ts})
+  — never part of the analysis. The free continuation's "I'm done" returns to
+  the hub. The feature is introduced in the landing How-it-works modal and the
+  C→post pause copy.
+- flow_test/ui_walk page loops are now dynamic (loop while the survey progress
+  bar exists) and cover the hub; a dedicated probe walks hub → new career →
+  capless exploration chat → back to hub.
+
 ## Verification log (2026-06-11)
 
 - `npm test` (flow / reconstruct / admin-gate / db) green after every batch; admin

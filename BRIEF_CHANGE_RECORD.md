@@ -86,6 +86,29 @@ like for you now? · 15. What's a recent moment that made it feel worth it? ·
 16. Is there a path you almost took instead? · 17. What do you miss about being my
 age? · 18. How do I know if this career is right for me?
 
+### 1.4 Timeline discipline in the role-play (both arms, 2026-06-12)
+
+The future self's invented autobiography must begin at the participant's current
+age/study year: every fabricated memory lives inside the ten years between their
+present and the bot's present. Events at or before the participant's "now" may
+only be referenced through what the participant has shared or through light
+generic textures — never as invented specifics, because the participant actually
+lived those years (a third-year being told a fabricated "our second year" story
+experiences an immersion-breaking contradiction). The baseline, which receives no
+profile, keeps all references to the past generic. Live-verified in both arms.
+
+### 1.5 Post-study exploration (new, outside the analysis; 2026-06-12)
+
+After the post-survey the participant reaches a hub with three options: continue
+the same conversation, step into a DIFFERENT career (a fresh career-selection
+chat followed by a new role-play — repeatable without limit, switchable mid-
+conversation), or finish. Everything after the post-survey remains recorded
+(under `freeContinuation.explorations`) but is never part of the main analysis;
+exploration role-plays run the full main prompt with no time policy. The feature
+is announced on the landing "How it works" modal and the pre-post-survey pause.
+Rationale: participant value (free exploration as a thank-you) without touching
+the measured flow — all instruments are completed before the hub is reachable.
+
 ## 2. Participant experience & fatigue management
 
 - **Landing page** is minimal-first: hero only; "How it works" (steps with
@@ -104,7 +127,11 @@ age? · 18. How do I know if this career is right for me?
   — typographic emphasis only; instrument wording, scales and anchors untouched.
   Second pass (same day): every survey page opens with a real serif heading and
   the task instruction in body ink, giving each page an unmistakable reading
-  entry point.
+  entry point. Third pass (2026-06-12): headings centered and oversized
+  (30–38 px), and pages shortened to ~5 items each — TIPI split 5+5 (verbatim
+  instruction repeated on both pages), circles and vividness separated, CDSE-SA
+  and CIP-CCA one page each (pre 9 pages, post 7). Pagination only; every item,
+  scale and anchor unchanged.
 - **Latency honesty**: after ~9 s of waiting the typing indicator adds "Taking a
   moment — a thoughtful reply can take a little while." (calm, no pressure cues).
 - **Free continuation** now *shows* the full stage-C conversation above a "Your
