@@ -155,7 +155,7 @@ async function api(path, opts = {}) {
   const r = await fetch(path, { headers: { 'Content-Type': 'application/json' }, ...opts });
   if (r.status === 401) { location.href = '/admin'; throw new Error('unauthorized'); }
   if (r.status === 503) { const d = await r.json().catch(() => ({})); throw new Error(d.error || 'unavailable'); }
-  if (!r.ok) { const d = await r.json().catch(() => ({})); throw new Error(d.error || ('HTTP ' + r.status)); }
+  if (!r.ok) { const d = await r.json().catch(() => ({})); throw new Error((d.error || ('HTTP ' + r.status)) + (d.detail ? ' — ' + d.detail : '')); }
   return r.json();
 }
 const short = (id) => (id || '').slice(0, 8);

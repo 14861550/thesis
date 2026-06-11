@@ -20,7 +20,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import Anthropic from '@anthropic-ai/sdk';
 import { pickPhaseBPrompt, buildSystemPrompt, buildBaselinePrompt } from './lib/prompt.js';
-import { dbEnabled, initSchema } from './lib/db.js';
+import { dbEnabled, initSchema, probe } from './lib/db.js';
 import { mountStudyRoutes } from './lib/study_routes.js';
 import { mountAdminRoutes } from './lib/admin_routes.js';
 import { mountResultsRoutes } from './lib/results_routes.js';
@@ -153,12 +153,16 @@ app.use((req, res, next) => {
 });
 
 // --- Health (deploy verification + uptime checks; Build Plan §13b) ---------
-app.get(['/healthz', '/api/health'], (req, res) => {
+// `db` is a REAL connection probe (SELECT 1), not just "is DATABASE_URL set",
+// so a misconfigured database shows up here instead of silently losing data.
+app.get(['/healthz', '/api/health'], async (req, res) => {
+  const db = await probe();
   res.json({
     ok: true,
     model: MODEL,
     provider: USE_PROXY ? 'uva-proxy' : 'anthropic',
-    db: dbEnabled,
+    db: db.ok,
+    db_detail: db,
   });
 });
 
@@ -266,10 +270,12 @@ const PORT = process.env.PORT || 3000;
 async function boot() {
   if (dbEnabled) {
     try {
-      await initSchema();
-      console.log('DB schema ready (persistence ON).');
+      const r = await initSchema();
+      console.log(r.ok
+        ? `DB schema ready (persistence ON; ${r.ran} statements).`
+        : `⚠  DB schema applied with ${r.failures.length} failed statement(s) — see warnings above.`);
     } catch (err) {
-      console.error('⚠  DB schema init failed — running WITHOUT persistence:', err?.message || err);
+      console.error('⚠  DB unreachable — sessions will NOT persist. Check DATABASE_URL / DATABASE_SSL:', err?.message || err);
     }
   } else {
     console.warn('⚠  DATABASE_URL not set — sessions are in-memory only (no persistence).');

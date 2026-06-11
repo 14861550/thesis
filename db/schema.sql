@@ -6,7 +6,10 @@
 --   messages   — flattened, queryable transcript turns (phase b + c).
 --   eval_runs  — one row per evaluation-pipeline run launched from the dashboard.
 
-CREATE EXTENSION IF NOT EXISTS pgcrypto;  -- gen_random_uuid()
+-- gen_random_uuid() is core in PostgreSQL 13+ (Railway runs 16), so no
+-- CREATE EXTENSION pgcrypto is needed — and requiring it would fail on roles
+-- without CREATE privilege. (db.js applies this file statement-by-statement, so
+-- a stray failure here would be non-fatal anyway.)
 
 CREATE TABLE IF NOT EXISTS sessions (
   id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),

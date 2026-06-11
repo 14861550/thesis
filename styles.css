@@ -555,3 +555,16 @@ html[data-font="serif"] .hero-sub { font-family: var(--font-serif); }
   background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-sm);
 }
 .sv-stem { font-size: 14px; font-weight: 500; color: var(--ink); margin: 0 0 10px; }
+
+/* The floating comfort/restart buttons must never cover bottom-bar controls.
+   Lift them above a chat composer (chat / phase-B / free) and above the
+   survey/pause nav bar (Back / Continue). :has() is supported in all current
+   browsers; older ones simply keep the default bottom corner. */
+body:has(.flow-foot) .comfort-fab { bottom: 84px; right: 20px; }
+body:has(.flow-foot) .restart-fab { bottom: 84px; left: 20px; }
+body:has(.composer-wrap) .comfort-fab { bottom: 100px; right: 20px; }
+body:has(.composer-wrap) .restart-fab { bottom: 100px; left: 20px; }
+@media (max-width: 520px) {
+  body:has(.composer-wrap) .comfort-fab,
+  body:has(.composer-wrap) .restart-fab { bottom: 108px; }
+}
