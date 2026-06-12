@@ -279,8 +279,17 @@ textarea.text-input { resize: vertical; min-height: 96px; line-height: 1.55; }
 .chat-main { display: flex; flex-direction: column; min-width: 0; background: var(--bg); }
 .chat-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 22px; border-bottom: 1px solid var(--border); }
 .chat-header .who { display: flex; align-items: center; gap: 12px; }
+.chat-header .who { min-width: 0; }
 .chat-header .who .name { font-size: 14.5px; font-weight: 500; }
 .chat-header .who .meta { font-size: 12px; color: var(--muted); }
+/* Phones: the sidebar is hidden, so keep the header's identity (name + meta) but
+   drop the decorative role-play chip and stop the Finish button from wrapping. */
+@media (max-width: 560px) {
+  .chat-header { padding: 10px 14px; gap: 10px; }
+  .chat-header .chip { display: none; }
+  .chat-header .who .name, .chat-header .who .meta { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .chat-header .btn.accent.sm { white-space: nowrap; flex: none; }
+}
 
 .chip {
   display: inline-flex; align-items: center; gap: 6px; padding: 5px 11px; border-radius: var(--radius-pill);
@@ -369,14 +378,22 @@ textarea.text-input { resize: vertical; min-height: 96px; line-height: 1.55; }
 }
 .sv-input:focus, .sv-textarea:focus { border-color: var(--accent); }
 .sv-textarea { resize: vertical; min-height: 64px; }
+/* Short fields (age, year) shouldn't stretch the full reading column. */
+input[type="number"].sv-input { max-width: 220px; }
 .sv-hint { font-family: var(--font-mono); font-size: 11px; color: var(--muted); margin-top: 8px; }
 
 .sv-grid { display: flex; flex-direction: column; gap: 16px; }
 .sv-scale { display: flex; flex-direction: column; gap: 7px; }
 .sv-scale-text { font-size: 14px; color: var(--ink); line-height: 1.4; }
-.sv-scale-row { display: flex; align-items: center; gap: 10px; }
-.sv-scale-end { font-size: 11px; color: var(--muted); flex: 0 0 auto; max-width: 84px; line-height: 1.2; }
-.sv-scale-pts { display: flex; gap: 6px; flex: 1; justify-content: center; }
+/* The 1–7 point row is centred as a single cluster so the verbatim end-anchors
+   sit *beside* the circles (not flung to the container edges) — readable at any
+   reading-width setting. Fixed-width ends keep the circle columns aligned across
+   rows. */
+.sv-scale-row { display: flex; align-items: center; gap: 14px; justify-content: center; flex-wrap: wrap; }
+.sv-scale-end { font-size: 11px; color: var(--muted); flex: 0 0 92px; width: 92px; line-height: 1.25; }
+.sv-scale-row .sv-scale-end:first-child { text-align: right; }
+.sv-scale-row .sv-scale-end:last-child  { text-align: left; }
+.sv-scale-pts { display: flex; gap: 7px; flex: 0 0 auto; justify-content: center; }
 .sv-pt {
   width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--border);
   background: var(--surface); color: var(--muted); font-size: 12.5px; cursor: pointer;

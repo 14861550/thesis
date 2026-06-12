@@ -315,7 +315,7 @@ const COMFORT_KEY = 'thesis_comfort_v1';
 // Defaults per Build Plan §0: text A++ / theme Dark / reading font Serif /
 // spacing Roomy / width Wide / motion Full (participants can change any of them;
 // the theme default lives in DEFAULT_TWEAKS in app.jsx).
-const COMFORT_DEFAULTS = { size: 'lg', spacing: 'roomy', width: 'wide', motion: 'full', font: 'serif' };
+const COMFORT_DEFAULTS = { size: 'lg', spacing: 'roomy', width: 'normal', motion: 'full', font: 'serif' };
 
 function ComfortSettings({ tweaks, setTweak }) {
   const [open, setOpen] = React.useState(false);
