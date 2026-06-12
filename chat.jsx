@@ -31,18 +31,22 @@ function splitParas(text) {
 }
 
 /* Render minimal inline markdown (**bold**, *italic*) so the model's emphasis
- * shows as formatting instead of distracting raw asterisks. Shared by both chats. */
+ * shows as formatting instead of distracting raw asterisks. Shared by both chats.
+ * The prompts now forbid markdown (v5.1 FORMAT lines); as belt-and-braces, any
+ * STRAY unpaired asterisks that still slip through are stripped from plain
+ * segments (raw * broke immersion in supervisor testing). */
 function renderRich(text) {
   const out = [];
   const re = /\*\*([^*]+)\*\*|\*([^*\n]+)\*/g;
+  const plain = (s) => s.replace(/\*+/g, '');
   let last = 0, m, k = 0;
   while ((m = re.exec(text)) !== null) {
-    if (m.index > last) out.push(text.slice(last, m.index));
+    if (m.index > last) out.push(plain(text.slice(last, m.index)));
     if (m[1] != null) out.push(<strong key={k++}>{m[1]}</strong>);
     else out.push(<em key={k++}>{m[2]}</em>);
     last = re.lastIndex;
   }
-  if (last < text.length) out.push(text.slice(last));
+  if (last < text.length) out.push(plain(text.slice(last)));
   return out;
 }
 
@@ -66,7 +70,14 @@ async function postJSON(url, body) {
 const SOFT_MIN = 20;
 const HARD_MIN = 30;
 
-function Chat({ profile, condition = 'main', profileData = {}, phaseBNotes = '', career: careerProp, onComplete, onExit }) {
+/* Render elapsed minutes as a quiet mm:ss count-up (§7: a running clock in the
+ * header; §16 forbids countdowns/pressure cues — counting UP is the spec). */
+function mmss(min) {
+  const s = Math.max(0, Math.floor(min * 60));
+  return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+}
+
+function Chat({ profile, condition = 'main', profileData = {}, phaseBNotes = '', location = '', career: careerProp, onComplete, onExit, onAutosave }) {
   const career = careerProp || profileData.career || 'this career';
   const initials = useMemo(
     () => (profile.name?.trim().split(/\s+/).map(w => w[0]).join('').slice(0, 2) || '—').toUpperCase(),
@@ -84,25 +95,42 @@ function Chat({ profile, condition = 'main', profileData = {}, phaseBNotes = '',
   const [showSuggestions, setShowSuggestions] = useState(true);
   const [error, setError] = useState(null);
   const [elapsedMin, setElapsedMin] = useState(0);
+  const [nextRest, setNextRest] = useState(SOFT_MIN); // recurring rest prompt cadence (§11.4)
+  const [saveState, setSaveState] = useState('');      // '' | 'saving' | 'saved' (§13b autosave indicator)
+  const [lastFailed, setLastFailed] = useState(null);  // failed user turn, for a clean "Try again" (§13b)
   const scrollRef = useRef(null);
   const sessionId = useRef(null);
   const startedAt = useRef(null);
 
-  const soft = elapsedMin >= SOFT_MIN && elapsedMin < HARD_MIN;
   const hard = elapsedMin >= HARD_MIN;
+  const soft = !hard && elapsedMin >= nextRest; // fires at 20 min and again every 20 if it continues
 
   useEffect(() => {
     const el = scrollRef.current;
     if (el) el.scrollTop = el.scrollHeight;
   }, [messages, pending, booting]);
 
-  // Tick the clock once the conversation has started.
+  // Tick the clock once the conversation has started (1s so the header clock runs smoothly).
   useEffect(() => {
     const t = setInterval(() => {
       if (startedAt.current) setElapsedMin((Date.now() - startedAt.current) / 60000);
-    }, 5000);
+    }, 1000);
     return () => clearInterval(t);
   }, []);
+
+  // Persist the transcript-so-far after every change (§13a: nothing lives only
+  // in browser memory; the user turn is saved before the slow model call too,
+  // because `send` appends it to state before awaiting the reply).
+  const toTranscript = (msgs) => msgs.map((m) => ({
+    role: m.role === 'user' ? 'user' : 'future',
+    text: m.role === 'user' ? m.text : (m.paras || []).join('\n\n'),
+    ts: m.ts,
+  }));
+  useEffect(() => {
+    if (!onAutosave || !messages.length) return;
+    setSaveState('saving');
+    Promise.resolve(onAutosave(toTranscript(messages))).finally(() => setSaveState('saved'));
+  }, [messages]);
 
   // Create the phase-c session (condition-routed) and fetch the opener on mount.
   useEffect(() => {
@@ -112,15 +140,15 @@ function Chat({ profile, condition = 'main', profileData = {}, phaseBNotes = '',
       setError(null);
       try {
         const { sessionId: sid, opening: text } =
-          await postJSON('/api/phase-c/session', { condition, profileData, phaseBNotes });
+          await postJSON('/api/phase-c/session', { condition, profileData, phaseBNotes, location });
         if (cancelled) return;
         sessionId.current = sid;
         startedAt.current = Date.now();
-        setMessages([{ role: 'future', paras: splitParas(text), id: 'm0' }]);
+        setMessages([{ role: 'future', paras: splitParas(text), id: 'm0', ts: new Date().toISOString() }]);
       } catch (e) {
         if (cancelled) return;
         startedAt.current = Date.now();
-        setMessages([{ role: 'future', paras: opening, id: 'm0' }]);
+        setMessages([{ role: 'future', paras: opening, id: 'm0', ts: new Date().toISOString() }]);
         setError("Couldn't reach your future self — replies won't work until the server is running.");
       } finally {
         if (!cancelled) setBooting(false);
@@ -130,46 +158,55 @@ function Chat({ profile, condition = 'main', profileData = {}, phaseBNotes = '',
   }, []); // run once
 
   const finish = () => {
-    const transcript = messages.map(m => ({
-      role: m.role === 'user' ? 'user' : 'future',
-      text: m.role === 'user' ? m.text : (m.paras || []).join('\n\n'),
-    }));
+    const transcript = toTranscript(messages);
     const durationSec = startedAt.current ? Math.round((Date.now() - startedAt.current) / 1000) : 0;
     const turnCount = messages.filter(m => m.role === 'user').length;
-    onComplete && onComplete({ transcript, durationSec, turnCount });
+    const hitSoft = elapsedMin >= SOFT_MIN;
+    const endedBy = hard ? 'hard_cap' : 'user';
+    // Hand back the live phase-c sessionId so free continuation can keep the SAME
+    // future-self conversation going (Build Plan §7 Screen 8 / §3.9b).
+    onComplete && onComplete(
+      { transcript, durationSec, turnCount, hitSoftCap: hitSoft, hitHardCap: hard, endedBy },
+      sessionId.current,
+    );
+  };
+
+  // Ask the model for a reply to `t`. The user bubble is appended by `send`;
+  // `retry` reuses the same path WITHOUT re-appending it (the server rolled the
+  // failed turn back, so re-sending the text is clean — §13b).
+  const requestReply = async (t) => {
+    setPending(true);
+    setError(null);
+    try {
+      const { reply } = await postJSON('/api/chat', { sessionId: sessionId.current, message: t });
+      setMessages(prev => [...prev, { role: 'future', paras: splitParas(reply), id: `f${Date.now()}`, ts: new Date().toISOString() }]);
+      setLastFailed(null);
+    } catch (e) {
+      setLastFailed(t);
+      setError("Connection hiccuped — your progress is saved.");
+    } finally {
+      setPending(false);
+    }
   };
 
   const send = async (text) => {
     const t = text.trim();
     if (!t || pending || booting || hard) return;
     if (!sessionId.current) { setError('No active session — reload to reconnect.'); return; }
-    setMessages(prev => [...prev, { role: 'user', text: t, id: `u${Date.now()}` }]);
+    setMessages(prev => [...prev, { role: 'user', text: t, id: `u${Date.now()}`, ts: new Date().toISOString() }]);
     setDraft('');
     setShowSuggestions(false);
-    setPending(true);
-    setError(null);
-    try {
-      const { reply } = await postJSON('/api/chat', { sessionId: sessionId.current, message: t });
-      setMessages(prev => [...prev, { role: 'future', paras: splitParas(reply), id: `f${Date.now()}` }]);
-    } catch (e) {
-      setError(e.message || 'Something went wrong. Please try again.');
-    } finally {
-      setPending(false);
-    }
+    await requestReply(t);
   };
 
-  const regen = async (msgId) => {
-    if (!sessionId.current || pending) return;
-    setMessages(prev => prev.map(m => m.id === msgId ? { ...m, regenerating: true } : m));
-    setError(null);
-    try {
-      const { reply } = await postJSON('/api/regenerate', { sessionId: sessionId.current });
-      setMessages(prev => prev.map(m => m.id === msgId ? { ...m, paras: splitParas(reply), regenerating: false } : m));
-    } catch (e) {
-      setMessages(prev => prev.map(m => m.id === msgId ? { ...m, regenerating: false } : m));
-      setError(e.message || 'Could not rephrase. Please try again.');
-    }
-  };
+  const retry = () => { if (lastFailed && !pending) requestReply(lastFailed); };
+
+  // Regenerate ("This doesn't feel like me") is intentionally REMOVED for the
+  // controlled study: letting a participant re-roll the future self's reply makes
+  // the role-play exposure non-comparable across participants and could be steered
+  // toward a flattering answer — a confound for the IBM outcome measures
+  // (Build Plan §11.5 seamlessness / measurement integrity). The /api/regenerate
+  // route still exists for ad-hoc testing but is no longer reachable in the UI.
 
   return (
     <div className="chat-app" data-screen-label="04 Chat">
@@ -217,6 +254,7 @@ function Chat({ profile, condition = 'main', profileData = {}, phaseBNotes = '',
             </div>
           </div>
           <div style={{display: 'flex', gap: 8, alignItems: 'center'}}>
+            <span className="clock" title="Time in this conversation">{mmss(elapsedMin)}</span>
             <span className="chip"><span className="pulse"></span>A role-play · you decide</span>
             <button className="btn accent sm" onClick={finish} title="Move on to the reflection">
               Finish &amp; reflect
@@ -246,12 +284,6 @@ function Chat({ profile, condition = 'main', profileData = {}, phaseBNotes = '',
                   </div>
                   {m.role === 'future' && !m.regenerating && (
                     <div className="actions">
-                      {isLast && (
-                      <button onClick={() => regen(m.id)} disabled={pending} title="Regenerate">
-                        <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 6a4 4 0 1 1 1.2 2.8M2 9V6h3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                        This doesn't feel like me
-                      </button>
-                      )}
                       <button title="Copy">
                         <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><rect x="3.5" y="3.5" width="6" height="6" rx="1" stroke="currentColor" strokeWidth="1.4"/><path d="M2 8V2.5C2 2.2 2.2 2 2.5 2H8" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/></svg>
                         Copy
@@ -285,11 +317,17 @@ function Chat({ profile, condition = 'main', profileData = {}, phaseBNotes = '',
 
         <div className="composer-wrap">
           {error && (
-            <div className="composer-error" role="status">{error}</div>
+            <div className="composer-error" role="status">
+              {error}
+              {lastFailed && (
+                <button className="link-btn" onClick={retry} disabled={pending}>Try again</button>
+              )}
+            </div>
           )}
           {soft && (
             <div className="time-note soft">
-              You've been talking for about 20 minutes — a natural place to wrap up whenever you're ready.
+              You've been talking for a while — a natural place to pause or wrap up whenever you're ready. No rush.
+              <button className="link-btn" onClick={() => setNextRest((n) => n + SOFT_MIN)}>Keep going</button>
               <button className="link-btn" onClick={finish}>Finish &amp; reflect →</button>
             </div>
           )}
@@ -312,11 +350,116 @@ function Chat({ profile, condition = 'main', profileData = {}, phaseBNotes = '',
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 11V3M3 7l4-4 4 4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/></svg>
             </button>
           </div>
-          <div className="composer-foot">Ask anything — your future self is here to think it through with you.</div>
+          <div className="composer-foot">
+            Ask anything — your future self is here to think it through with you.
+            {saveState && <span className="save-note">{saveState === 'saving' ? ' · Saving…' : ' · Progress saved ✓'}</span>}
+          </div>
         </div>
       </main>
     </div>
   );
 }
 
-Object.assign(window, { Chat, postJSON, splitParas, renderRich, buildOpening });
+/* ============================================================
+   FREE CONTINUATION (Build Plan §7 Screen 8 / §3.9b)
+   The SAME future-self conversation continuing after the post-survey. It reuses
+   the live phase-c sessionId (so the model still has the full role-play history),
+   the clock keeps counting, and it is logged SEPARATELY — never part of the main
+   analysis. Optional; the participant is already "done".
+   ============================================================ */
+function FreeContinuation({ profile = {}, career = 'this career', sessionId, onDone, onAutosave }) {
+  const { useState, useEffect, useRef } = React;
+  const [messages, setMessages] = useState([]);
+  const [draft, setDraft] = useState('');
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState(null);
+  const startedAt = useRef(Date.now());
+  const scrollRef = useRef(null);
+  const initials = ((profile.name || '').trim().split(/\s+/).map((w) => w[0]).join('').slice(0, 2) || '—').toUpperCase();
+
+  useEffect(() => { const el = scrollRef.current; if (el) el.scrollTop = el.scrollHeight; }, [messages, pending]);
+
+  const toTranscript = (msgs) => msgs.map((m) => ({
+    role: m.role === 'user' ? 'user' : 'future',
+    text: m.role === 'user' ? m.text : (m.paras || []).join('\n\n'),
+    ts: m.ts,
+  }));
+
+  // Same per-turn durability as the role-play (§13a) — logged separately (§3.9b).
+  useEffect(() => {
+    if (!onAutosave || !messages.length) return;
+    onAutosave(toTranscript(messages));
+  }, [messages]);
+
+  const wrapUp = () => {
+    const durationSec = Math.round((Date.now() - startedAt.current) / 1000);
+    const turnCount = messages.filter((m) => m.role === 'user').length;
+    onDone && onDone({ transcript: toTranscript(messages), durationSec, turnCount });
+  };
+
+  const send = async (text) => {
+    const t = text.trim();
+    if (!t || pending) return;
+    if (!sessionId) { setError('This chat has ended — your study session is already saved.'); return; }
+    setMessages((p) => [...p, { role: 'user', text: t, id: `u${Date.now()}`, ts: new Date().toISOString() }]);
+    setDraft(''); setPending(true); setError(null);
+    try {
+      const { reply } = await postJSON('/api/chat', { sessionId, message: t });
+      setMessages((p) => [...p, { role: 'future', paras: splitParas(reply), id: `f${Date.now()}`, ts: new Date().toISOString() }]);
+    } catch (e) {
+      setError(e.message || 'Something went wrong. Please try again.');
+    } finally { setPending(false); }
+  };
+
+  return (
+    <div className="flow">
+      <nav className="topnav">
+        <div className="brand"><BrandMark size={22} /><span>Thesis</span></div>
+        <div className="end"><button className="btn accent sm" onClick={wrapUp}>I'm done →</button></div>
+      </nav>
+      <div className="flow-body">
+        <div className="pb-wrap">
+          <div className="sv-wrap" style={{ textAlign: 'center', paddingBottom: 8 }}>
+            <div className="eyebrow" style={{ justifyContent: 'center' }}><span className="dot" />Just for you</div>
+            <p className="sv-hint" style={{ maxWidth: '52ch', margin: '0 auto' }}>
+              The study questions are done. If you like, keep talking with your future self — this part is
+              still recorded for the researcher, but it's outside the main study and entirely optional.
+            </p>
+          </div>
+          <div className="pb-scroll" ref={scrollRef}>
+            <div className="chat-thread">
+              {messages.map((m) => (
+                <div key={m.id} className={`msg ${m.role === 'user' ? 'user' : 'future'} fade-in`}>
+                  <div className="avatar">{m.role === 'user' ? (profile.name?.[0] || 'Y').toUpperCase() : <MiniAvatar initials={initials} color={profile.color} size={30} />}</div>
+                  <div style={{ minWidth: 0, flex: m.role === 'user' ? 'unset' : 1 }}>
+                    <div className="bubble">{m.role === 'future' ? m.paras.map((p, i) => <p key={i}>{renderRich(p)}</p>) : m.text}</div>
+                  </div>
+                </div>
+              ))}
+              {pending && (
+                <div className="msg future fade-in">
+                  <div className="avatar"><MiniAvatar initials={initials} color={profile.color} size={30} /></div>
+                  <div className="bubble"><div className="typing"><span></span><span></span><span></span></div></div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+      <div className="composer-wrap pb-composer">
+        {error && <div className="composer-error">{error}</div>}
+        <div className="composer">
+          <textarea rows={1} placeholder={`Message ${profile.name || 'your future self'}…`}
+            value={draft} onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(draft); } }} />
+          <button className="send" disabled={!draft.trim() || pending} onClick={() => send(draft)} aria-label="Send">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 11V3M3 7l4-4 4 4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg>
+          </button>
+        </div>
+        <div className="composer-foot">Optional extra chat — recorded, but not part of the main study analysis.</div>
+      </div>
+    </div>
+  );
+}
+
+Object.assign(window, { Chat, FreeContinuation, postJSON, splitParas, renderRich, buildOpening });
