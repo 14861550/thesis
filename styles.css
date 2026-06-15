@@ -144,6 +144,41 @@ input, textarea { font-family: inherit; color: inherit; }
   padding: 5px 12px; border-radius: var(--radius-pill);
   border: 1px solid var(--border);
 }
+/* Calm time framing under the hero: stages first, then the total, then the
+   "pause anytime, progress is saved" reassurance (fatigue, §15/§16). */
+.hero-time {
+  margin: 18px auto 0; max-width: 64ch; font-size: 12.5px; line-height: 1.7;
+  color: var(--muted); text-wrap: pretty;
+}
+
+/* "How it works" — on demand only (minimal-first landing, 2026-06-11). */
+.how-overlay {
+  position: fixed; inset: 0; z-index: 70; padding: 24px; display: grid; place-items: center;
+  background: color-mix(in oklch, var(--ink) 30%, transparent); backdrop-filter: blur(3px);
+  animation: fade .2s ease; overflow-y: auto;
+}
+.how-modal {
+  position: relative; background: var(--surface); border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg); box-shadow: var(--shadow-pop);
+  width: min(560px, 100%); max-height: calc(100dvh / var(--zoom, 1) - 48px); overflow-y: auto;
+  padding: 28px 28px 24px; text-align: left;
+}
+.how-modal h2 { font-family: var(--font-serif); font-size: 26px; letter-spacing: -0.01em; margin: 0 0 6px; }
+.how-modal .lede { color: var(--muted); font-size: 14px; line-height: 1.6; margin: 0 0 20px; }
+.how-modal .steps { grid-template-columns: 1fr; gap: 18px; margin-bottom: 18px; }
+.how-modal .step { padding: 0; }
+.how-modal .step + .step { border-left: 0; }
+.how-modal .step .num { margin-bottom: 6px; }
+.how-about {
+  font-size: 12.5px; color: var(--muted); line-height: 1.65; margin: 0 0 18px;
+  padding-top: 14px; border-top: 1px solid var(--border);
+}
+.how-close {
+  position: absolute; top: 14px; right: 14px; width: 30px; height: 30px;
+  border: 0; background: transparent; color: var(--muted); font-size: 20px; line-height: 1;
+  border-radius: 8px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
+}
+.how-close:hover { background: var(--surface-2); color: var(--ink); }
 
 /* ---------- How it works (text only, no art) ---------- */
 .howit { max-width: 880px; margin: 0 auto; padding: 24px 28px 96px; }
@@ -260,11 +295,11 @@ textarea.text-input { resize: vertical; min-height: 96px; line-height: 1.55; }
 
 /* ---------- Chat ---------- */
 .chat-app { display: grid; grid-template-columns: 272px 1fr; height: 100vh; }
-@media (max-width: 860px) { .chat-app { grid-template-columns: 1fr; } .chat-side { display: none; } }
 
 .chat-side {
   border-right: 1px solid var(--border); background: var(--surface-2);
-  padding: 16px 12px; display: flex; flex-direction: column; gap: 18px; overflow-y: auto;
+  padding: 16px 12px; display: flex; flex-direction: column; gap: 18px;
+  overflow-y: auto; min-height: 0;
 }
 .chat-side .brand { padding: 6px 6px 4px; display: flex; align-items: center; gap: 8px; font-weight: 500; }
 .side-section { display: flex; flex-direction: column; gap: 6px; }
@@ -276,11 +311,35 @@ textarea.text-input { resize: vertical; min-height: 96px; line-height: 1.55; }
 .side-decision .lbl { font-size: 10.5px; color: var(--muted); letter-spacing: 0.06em; text-transform: uppercase; }
 .side-decision .body { font-size: 14px; margin-top: 5px; color: var(--ink); font-weight: 500; }
 
-.chat-main { display: flex; flex-direction: column; min-width: 0; background: var(--bg); }
+/* min-height: 0 on the column and the scroller — without it their min-content
+   height wins over the fixed .chat-app height once the thread grows, pushing
+   the composer below the fold (visible on mobile first). */
+.chat-main { display: flex; flex-direction: column; min-width: 0; min-height: 0; background: var(--bg); }
 .chat-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 22px; border-bottom: 1px solid var(--border); }
-.chat-header .who { display: flex; align-items: center; gap: 12px; }
-.chat-header .who .name { font-size: 14.5px; font-weight: 500; }
-.chat-header .who .meta { font-size: 12px; color: var(--muted); }
+.chat-header .who { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.chat-header .who .name { font-size: 14.5px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.chat-header .who .meta { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Restart inside the chat header — shown only on mobile, where the sidebar
+   (which carries "Start over" on desktop) is hidden. */
+.header-restart {
+  display: none; width: 32px; height: 32px; border-radius: 50%; flex: none;
+  border: 1px solid var(--border-strong); background: transparent; color: var(--muted);
+  font-size: 14px; line-height: 1; align-items: center; justify-content: center;
+}
+.header-restart:hover { color: var(--ink); background: var(--surface-2); }
+
+/* Mobile chat: hide the sidebar (this block must come AFTER the .chat-side base
+   rule — at equal specificity the later rule wins, so placing it earlier left
+   the sidebar stacked above the chat on every phone). Compact the header. */
+@media (max-width: 860px) {
+  .chat-app { grid-template-columns: 1fr; }
+  .chat-side { display: none; }
+  .header-restart { display: inline-flex; }
+  .chat-header { padding: 10px 14px; gap: 8px; }
+  .chat-header .chip { display: none; }
+  .chat-header .btn.accent.sm { white-space: nowrap; }
+}
 
 .chip {
   display: inline-flex; align-items: center; gap: 6px; padding: 5px 11px; border-radius: var(--radius-pill);
@@ -289,7 +348,7 @@ textarea.text-input { resize: vertical; min-height: 96px; line-height: 1.55; }
 .chip .pulse { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); animation: pulse 2.4s infinite; }
 @keyframes pulse { 0% { box-shadow: 0 0 0 0 color-mix(in oklch, var(--accent) 45%, transparent); } 70% { box-shadow: 0 0 0 7px transparent; } 100% { box-shadow: 0 0 0 0 transparent; } }
 
-.chat-scroll { flex: 1; overflow-y: auto; padding: 30px 24px 14px; }
+.chat-scroll { flex: 1; min-height: 0; overflow-y: auto; padding: 30px 24px 14px; }
 .chat-thread { max-width: 720px; margin: 0 auto; display: flex; flex-direction: column; gap: 30px; }
 
 .msg { display: flex; gap: 14px; align-items: flex-start; }
@@ -314,20 +373,47 @@ textarea.text-input { resize: vertical; min-height: 96px; line-height: 1.55; }
 }
 .action-chip:hover { background: var(--accent-soft); }
 
+/* Researcher preview badge (?preview=1): always-visible reminder that this run
+   saves nothing and validation is off. */
+.preview-badge {
+  position: fixed; top: 10px; left: 50%; transform: translateX(-50%); z-index: 80;
+  font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .08em;
+  padding: 5px 14px; border-radius: var(--radius-pill);
+  background: var(--accent-soft); color: var(--accent-ink); border: 1px solid var(--accent);
+  pointer-events: none;
+}
+
+/* Quiet patience note under the typing dots once a reply runs long (the
+   reasoning model can take a while; bare dots read as "it broke"). Calm only —
+   §16 forbids pressure cues. */
+.slow-note { margin-top: 6px; font-size: 12px; color: var(--muted-2); }
+
 .typing { display: inline-flex; gap: 4px; align-items: center; padding: 6px 0; }
 .typing span { width: 7px; height: 7px; border-radius: 50%; background: var(--muted-2); animation: bounce 1.2s infinite ease-in-out; }
 .typing span:nth-child(2) { animation-delay: .15s; }
 .typing span:nth-child(3) { animation-delay: .3s; }
 @keyframes bounce { 0%, 80%, 100% { transform: translateY(0); opacity: .5; } 40% { transform: translateY(-4px); opacity: 1; } }
 
-.suggested { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 4px 0 0 44px; max-width: 600px; }
-@media (max-width: 560px) { .suggested { grid-template-columns: 1fr; margin-left: 0; } }
-.suggest-btn {
-  text-align: left; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md);
-  padding: 12px 14px; font-size: 13.5px; color: var(--ink-2); line-height: 1.45; transition: border-color .15s ease, background .15s ease;
+/* "Ideas to ask" cards — four, refreshed after every future-self reply (fatigue
+   relief; free typing always remains available below). 2×2 grid for an easy
+   scan; readable card type rather than cramped pills. */
+.ask-row { max-width: 720px; margin: 0 auto 10px; }
+.ask-lbl {
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.07em; text-transform: uppercase;
+  color: var(--muted-2); margin: 0 0 7px 2px;
 }
-.suggest-btn:hover { background: var(--surface-2); border-color: var(--border-strong); }
-.suggest-btn .lbl { display: block; font-family: var(--font-mono); font-size: 10px; color: var(--muted); letter-spacing: 0.07em; text-transform: uppercase; margin-bottom: 4px; }
+.ask-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.ask-chip {
+  border: 1px solid var(--border); background: var(--surface); color: var(--ink-2);
+  border-radius: var(--radius-md); padding: 10px 14px; font-size: 13.5px; line-height: 1.5;
+  text-align: left; transition: border-color .15s ease, background .15s ease, color .15s ease;
+}
+.ask-chip:hover { border-color: var(--accent); background: var(--accent-soft); color: var(--accent-ink); }
+.ask-chip:disabled { opacity: .45; cursor: not-allowed; }
+@media (max-width: 640px) {
+  .ask-grid { gap: 6px; }
+  .ask-chip { font-size: 13px; padding: 9px 12px; line-height: 1.45; }
+}
 
 .composer-wrap { padding: 10px 24px 22px; }
 .composer {
@@ -355,27 +441,37 @@ textarea.text-input { resize: vertical; min-height: 96px; line-height: 1.55; }
 /* ============================================================
    Survey / Phase-B / Consent / time-cap — added for full flow
    ============================================================ */
+/* Survey typography (2026-06-11 readability pass): item text leads clearly,
+   secondary chrome (anchors, hints) stays visibly smaller, and blocks breathe —
+   the old uniform 14px/11px-mono wall read as dense and stressful. */
 .sv-eyebrow { font-family: var(--font-mono); font-size: 11px; letter-spacing: .04em;
   text-transform: uppercase; color: var(--muted); }
 .sv-wrap { max-width: 640px; margin: 0 auto; padding: 8px 4px 24px; width: 100%; }
-.sv-intro { color: var(--muted); font-size: 14px; line-height: 1.5; margin: 6px 0 22px; }
-.sv-section { display: flex; flex-direction: column; gap: 22px; }
-.sv-field { display: block; margin-bottom: 18px; }
-.sv-label { display: block; font-size: 14px; color: var(--ink); margin-bottom: 9px; line-height: 1.45; }
+.sv-intro { color: var(--muted); font-size: 14.5px; line-height: 1.6; margin: 6px 0 22px; }
+.sv-section { display: flex; flex-direction: column; gap: 26px; }
+.sv-field { display: block; margin-bottom: 24px; }
+.sv-label { display: block; font-size: 15.5px; color: var(--ink); margin-bottom: 10px; line-height: 1.5; }
 .sv-input, .sv-textarea {
   width: 100%; background: var(--surface); color: var(--ink);
   border: 1px solid var(--border); border-radius: var(--radius-md);
-  padding: 11px 13px; font: inherit; font-size: 14px; outline: none;
+  padding: 11px 13px; font: inherit; font-size: 15px; outline: none;
 }
 .sv-input:focus, .sv-textarea:focus { border-color: var(--accent); }
 .sv-textarea { resize: vertical; min-height: 64px; }
-.sv-hint { font-family: var(--font-mono); font-size: 11px; color: var(--muted); margin-top: 8px; }
+.sv-hint { font-size: 12.5px; color: var(--muted); margin-top: 8px; line-height: 1.5; }
 
-.sv-grid { display: flex; flex-direction: column; gap: 16px; }
-.sv-scale { display: flex; flex-direction: column; gap: 7px; }
-.sv-scale-text { font-size: 14px; color: var(--ink); line-height: 1.4; }
+/* Survey page heading block — centered and oversized so the page topic is the
+   unmistakable entry point, clearly distinct from the items below. */
+.sv-head { text-align: center; margin: 0 auto 30px; max-width: 58ch; }
+.sv-part { font-family: var(--font-mono); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); margin-bottom: 8px; }
+.sv-title { font-family: var(--font-serif); font-size: clamp(30px, 4vw, 38px); font-weight: 400; letter-spacing: -0.015em; line-height: 1.12; margin: 0 0 12px; text-wrap: balance; }
+.sv-instruction { font-size: 16.5px; line-height: 1.6; color: var(--ink-2); margin: 0 auto; max-width: 52ch; text-wrap: pretty; }
+
+.sv-grid { display: flex; flex-direction: column; gap: 26px; }
+.sv-scale { display: flex; flex-direction: column; gap: 9px; }
+.sv-scale-text { font-size: 15.5px; color: var(--ink); line-height: 1.5; }
 .sv-scale-row { display: flex; align-items: center; gap: 10px; }
-.sv-scale-end { font-size: 11px; color: var(--muted); flex: 0 0 auto; max-width: 84px; line-height: 1.2; }
+.sv-scale-end { font-size: 11.5px; color: var(--muted); flex: 0 0 auto; max-width: 110px; line-height: 1.25; }
 .sv-scale-pts { display: flex; gap: 6px; flex: 1; justify-content: center; }
 .sv-pt {
   width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--border);
@@ -402,7 +498,7 @@ textarea.text-input { resize: vertical; min-height: 96px; line-height: 1.55; }
 .sv-choice {
   border: 1px solid var(--border); border-radius: var(--radius-md);
   background: var(--surface); color: var(--ink); padding: 10px 14px;
-  font: inherit; font-size: 13.5px; cursor: pointer; text-align: left; transition: all .12s ease;
+  font: inherit; font-size: 14.5px; cursor: pointer; text-align: left; transition: all .12s ease;
 }
 .sv-choice:hover:not(:disabled) { border-color: var(--accent); }
 .sv-choice.on { border-color: var(--accent); background: var(--accent-soft); color: var(--accent-ink); }
@@ -463,3 +559,147 @@ textarea.text-input { resize: vertical; min-height: 96px; line-height: 1.55; }
 
 /* Let long survey / phase-b pages scroll from the top instead of clipping */
 .flow-body:has(.sv-wrap), .flow-body:has(.pb-wrap) { align-items: flex-start; overflow-y: auto; }
+
+/* ====================================================================
+   Comfort & display settings (participant accessibility — Build Plan §16/§16a)
+   Driven by data attributes on <html> set by ComfortSettings. The CSS is
+   px-based, so text size uses `zoom` (supported in all current engines).
+   ==================================================================== */
+html[data-size="md"] { zoom: 1.06; --zoom: 1.06; }
+html[data-size="lg"] { zoom: 1.12; --zoom: 1.12; }
+html[data-size="xl"] { zoom: 1.20; --zoom: 1.20; }
+
+html[data-spacing="roomy"] .bubble p,
+html[data-spacing="roomy"] .sv-intro,
+html[data-spacing="roomy"] .consent-body,
+html[data-spacing="roomy"] .consent-body p,
+html[data-spacing="roomy"] .hero-sub,
+html[data-spacing="roomy"] .sv-scale-text { line-height: 1.9; }
+
+html[data-width="wide"] .chat-thread,
+html[data-width="wide"] .sv-wrap,
+html[data-width="wide"] .pb-wrap { max-width: 900px; }
+html[data-width="narrow"] .chat-thread,
+html[data-width="narrow"] .sv-wrap,
+html[data-width="narrow"] .pb-wrap { max-width: 600px; }
+
+html[data-motion="reduced"] *,
+html[data-motion="reduced"] *::before,
+html[data-motion="reduced"] *::after {
+  animation-duration: .001ms !important; animation-iteration-count: 1 !important;
+  transition-duration: .001ms !important; scroll-behavior: auto !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .001ms !important; transition-duration: .001ms !important; }
+}
+
+.comfort-fab {
+  position: fixed; right: 18px; bottom: 18px; z-index: 62; /* above the panel so it always closes it */
+  width: 44px; height: 44px; border-radius: 999px;
+  border: 1px solid var(--border-strong); background: var(--surface); color: var(--ink);
+  box-shadow: var(--shadow-pop); cursor: pointer; font-size: 16px; font-weight: 600;
+  display: flex; align-items: center; justify-content: center;
+}
+.comfort-panel {
+  position: fixed; right: 18px; bottom: 70px; z-index: 60; width: 268px;
+  max-height: calc(100dvh / var(--zoom, 1) - 120px); overflow-y: auto;
+  background: var(--surface); border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md); box-shadow: var(--shadow-pop); padding: 14px 14px 6px;
+}
+/* The panel rides above the fab wherever the fab is lifted (see the :has()
+   rules below) — previously it opened ON TOP of the lifted fab, so the open
+   button vanished and the panel could not be closed. */
+body:has(.flow-foot) .comfort-panel { bottom: 140px; }
+body:has(.composer-wrap) .comfort-panel { bottom: 156px; }
+@media (max-width: 520px) { body:has(.composer-wrap) .comfort-panel { bottom: 164px; } }
+.comfort-panel h4 { margin: 0 0 12px; font-size: 13px; color: var(--ink); display: flex; justify-content: space-between; align-items: center; }
+.comfort-close {
+  border: 0; background: transparent; color: var(--muted); cursor: pointer;
+  font-size: 16px; line-height: 1; padding: 2px 6px; border-radius: 6px;
+}
+.comfort-close:hover { background: var(--surface-2); color: var(--ink); }
+.comfort-row { margin-bottom: 12px; }
+.comfort-row .lbl { font-size: 10.5px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin-bottom: 5px; }
+.comfort-seg { display: flex; gap: 4px; }
+.comfort-seg button {
+  flex: 1; min-width: 0; padding: 6px 4px; font-size: 12px;
+  border: 1px solid var(--border); background: var(--surface-2); color: var(--ink-2);
+  border-radius: 7px; cursor: pointer;
+}
+.comfort-seg button.on { background: var(--accent-soft); color: var(--accent-ink); border-color: var(--accent); }
+
+/* Reading font (comfort setting; §16: "a calm serif for the future-self's voice").
+   Serif applies to long-form reading text — chat bubbles, intros, consent — not
+   to controls or labels. */
+html[data-font="serif"] .bubble,
+html[data-font="serif"] .sv-intro,
+html[data-font="serif"] .consent-body,
+html[data-font="serif"] .pause-note,
+html[data-font="serif"] .hero-sub { font-family: var(--font-serif); }
+
+/* Persistent restart chrome (§0) — quiet, bottom-left, away from the comfort fab. */
+.restart-fab {
+  position: fixed; left: 18px; bottom: 18px; z-index: 60;
+  padding: 8px 14px; border-radius: 999px; font-size: 12.5px;
+  border: 1px solid var(--border-strong); background: var(--surface); color: var(--muted);
+  box-shadow: var(--shadow-card); cursor: pointer;
+}
+.restart-fab:hover { color: var(--ink); background: var(--surface-2); }
+
+/* Stage-C running clock (§7) — counts up; quiet, never alarming (§16). Lives in
+   the always-visible header only (the duplicate footer clock was removed). */
+.chat-header .clock { font-family: var(--font-mono); font-size: 12px; color: var(--muted); letter-spacing: .04em; }
+
+/* Autosave indicator (§13b). */
+.composer-foot .save-note { color: var(--muted-2); }
+
+/* Mobile full-height (§16c): dvh tracks the real visible viewport on iOS/Android.
+   Divided by the comfort zoom factor — `zoom` multiplies viewport-unit lengths at
+   render, so a plain 100dvh overflowed by the zoom % (default A++ = 12%), which
+   scrolled the chat header (and its clock) right off the screen. */
+.chat-app { height: calc(100dvh / var(--zoom, 1)); }
+.app { min-height: calc(100dvh / var(--zoom, 1)); }
+
+/* Circles (IOS/FSCS) anchors: end labels on one shared line, legend centered —
+   the old .sv-scale-end 84px cap crushed them into tall one-word-per-line
+   stacks under the first and last circle. Wording unchanged (§10.1d/e). */
+.sv-ios-ends { display: flex; justify-content: space-between; gap: 16px; font-size: 11px; color: var(--muted); line-height: 1.35; margin-top: 4px; }
+.sv-ios-ends span + span { text-align: right; }
+.sv-ios-legend { text-align: center; font-size: 11px; color: var(--muted-2); margin-top: 6px; }
+
+/* v5.1 — original-instrument rendering: verbatim anchor legend + item stem */
+.sv-anchors {
+  font-size: 12.5px; color: var(--muted); line-height: 1.7;
+  padding: 10px 12px; margin-bottom: 12px;
+  background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-sm);
+}
+.sv-stem { font-size: 15.5px; font-weight: 500; color: var(--ink); margin: 0 0 10px; }
+
+/* The floating comfort/restart buttons must never cover bottom-bar controls.
+   Lift them above a chat composer (chat / phase-B / free) and above the
+   survey/pause nav bar (Back / Continue). :has() is supported in all current
+   browsers; older ones simply keep the default bottom corner. */
+body:has(.flow-foot) .comfort-fab { bottom: 84px; right: 20px; }
+body:has(.flow-foot) .restart-fab { bottom: 84px; left: 20px; }
+body:has(.composer-wrap) .comfort-fab { bottom: 100px; right: 20px; }
+body:has(.composer-wrap) .restart-fab { bottom: 100px; left: 20px; }
+@media (max-width: 520px) {
+  body:has(.composer-wrap) .comfort-fab,
+  body:has(.composer-wrap) .restart-fab { bottom: 108px; }
+}
+
+/* In the chat the restart control lives in the chrome itself — the sidebar's
+   "Start over" on desktop, the header ↻ on mobile — so the floating fab is
+   hidden there entirely: bottom-left it covered the sidebar's explanation text
+   (desktop) or the ask-chips row (mobile). */
+body:has(.chat-app) .restart-fab { display: none; }
+
+/* Free continuation: the earlier role-play transcript shown read-only above the
+   new turns, slightly dimmed, with a quiet divider where "now" begins. */
+.msg.history { opacity: .62; }
+.history-note {
+  display: flex; align-items: center; gap: 12px; margin: 2px 0;
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--muted);
+}
+.history-note::before, .history-note::after { content: ""; flex: 1; height: 1px; background: var(--border); }

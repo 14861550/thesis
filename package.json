@@ -7,7 +7,7 @@
     "start": "node server.js",
     "db:up": "docker compose up -d",
     "db:down": "docker compose down",
-    "test": "node test/flow_test.cjs && node test/reconstruct_test.mjs && node test/admin_gate_test.mjs && node test/db_test.mjs"
+    "test": "node test/flow_test.cjs && node test/recs_test.mjs && node test/reconstruct_test.mjs && node test/admin_gate_test.mjs && node test/db_test.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",

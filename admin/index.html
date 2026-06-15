@@ -9,7 +9,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&family=Geist+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
 
-  <script>(function(){var t=localStorage.getItem('admin-theme');if(t)document.documentElement.setAttribute('data-theme',t);})();</script>
+  <!-- Default theme = dark, matching the participant app's default. -->
+  <script>(function(){var t=localStorage.getItem('admin-theme')||'dark';document.documentElement.setAttribute('data-theme',t);})();</script>
 
   <script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js" crossorigin></script>
@@ -64,9 +65,9 @@
     /* ---------- Buttons ---------- */
     .btn { display: inline-flex; align-items: center; gap: 7px; height: 36px; padding: 0 15px;
       border-radius: var(--radius-pill); font-size: 13.5px; font-weight: 500; line-height: 1;
-      border: 1px solid var(--border-strong); background: transparent; color: var(--ink);
+      border: 1px solid var(--border-strong); background: var(--surface); color: var(--ink);
       transition: background .15s ease, border-color .15s ease, opacity .15s ease; text-decoration: none; }
-    .btn:hover { background: var(--surface-2); text-decoration: none; }
+    .btn:hover { background: var(--surface-2); border-color: var(--muted); text-decoration: none; }
     .btn.pri { background: var(--accent); border-color: var(--accent); color: #fff; }
     .btn.pri:hover { background: var(--accent); opacity: .9; }
     .btn.danger { color: var(--accent-ink); border-color: var(--border-strong); }
@@ -112,19 +113,27 @@
     .overlay { position: fixed; inset: 0; z-index: 20; padding: 24px; display: grid; place-items: center;
       background: color-mix(in oklch, var(--ink) 34%, transparent); backdrop-filter: blur(3px); animation: fade .2s ease; }
     .modal { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg);
-      width: min(900px, 100%); max-height: 88vh; overflow: auto; padding: 24px; box-shadow: var(--shadow-pop); }
+      width: min(1180px, 100%); max-height: 92vh; overflow: auto; padding: 26px 28px; box-shadow: var(--shadow-pop); }
     .modal h2 { font-family: var(--font-serif); font-weight: 400; font-size: 25px; letter-spacing: -0.01em;
       margin: 0 0 4px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-    @media (max-width: 680px) { .grid2 { grid-template-columns: 1fr; } }
+    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    @media (max-width: 760px) { .grid2 { grid-template-columns: 1fr; } }
     .panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md);
-      padding: 16px; box-shadow: var(--shadow-card); }
+      padding: 16px; box-shadow: var(--shadow-card); min-width: 0; }
     .panel h3 { margin: 0 0 11px; font-family: var(--font-mono); font-size: 10.5px; color: var(--muted);
       text-transform: uppercase; letter-spacing: 0.08em; }
-    .kv { display: grid; grid-template-columns: auto 1fr; gap: 5px 14px; font-size: 13.5px; }
-    .kv b { color: var(--muted); font-weight: 500; }
-    .chat { display: flex; flex-direction: column; gap: 8px; max-height: 280px; overflow: auto; padding-right: 4px; }
-    .bub { padding: 9px 12px; max-width: 85%; white-space: pre-wrap; line-height: 1.5; font-size: 13.5px; }
+    .kv { display: grid; grid-template-columns: minmax(110px, max-content) 1fr; gap: 7px 16px;
+      font-size: 13.5px; line-height: 1.5; }
+    .kv b { color: var(--muted); font-weight: 500; overflow-wrap: anywhere; }
+    .kv span { overflow-wrap: anywhere; min-width: 0; }
+    .kv-scroll { max-height: 320px; overflow: auto; padding-right: 6px; }
+    .chat { display: flex; flex-direction: column; gap: 8px; max-height: 440px; overflow: auto; padding-right: 4px; }
+    .bub { padding: 9px 12px; max-width: 88%; white-space: pre-wrap; line-height: 1.55; font-size: 13.5px;
+      overflow-wrap: anywhere; }
+    details.raw { margin-top: 16px; }
+    details.raw summary { cursor: pointer; font-family: var(--font-mono); font-size: 11px; color: var(--muted);
+      text-transform: uppercase; letter-spacing: 0.08em; padding: 6px 0; user-select: none; }
+    details.raw summary:hover { color: var(--ink); }
     .bub.user { align-self: flex-end; background: var(--surface-2); border-radius: 14px 14px 4px 14px; }
     .bub.other { align-self: flex-start; background: var(--surface); border: 1px solid var(--border); border-radius: 14px 14px 14px 4px; }
     pre.json { background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-sm);
@@ -155,12 +164,69 @@ async function api(path, opts = {}) {
   const r = await fetch(path, { headers: { 'Content-Type': 'application/json' }, ...opts });
   if (r.status === 401) { location.href = '/admin'; throw new Error('unauthorized'); }
   if (r.status === 503) { const d = await r.json().catch(() => ({})); throw new Error(d.error || 'unavailable'); }
-  if (!r.ok) { const d = await r.json().catch(() => ({})); throw new Error(d.error || ('HTTP ' + r.status)); }
+  if (!r.ok) {
+    const d = await r.json().catch(() => ({}));
+    throw new Error((d.error || ('HTTP ' + r.status))
+      + (d.detail ? ' — ' + d.detail : '')
+      + (d.hint ? ' · Fix: ' + d.hint : ''));
+  }
   return r.json();
 }
 const short = (id) => (id || '').slice(0, 8);
 const fmt = (t) => t ? new Date(t).toLocaleString() : '—';
 const Pill = ({ s }) => <span className={'pill s-' + s}>{s}</span>;
+
+// Tidy CSV export — one row per run, all scalars + scored scales (§14). Built
+// client-side from the JSON export so it always matches what the DB holds.
+const CSV_MEAN = (o, ids) => {
+  const v = ids.map((i) => Number(o && o[i])).filter((x) => !Number.isNaN(x));
+  return v.length ? (v.reduce((a, b) => a + b, 0) / v.length).toFixed(2) : '';
+};
+function studiesToCsv(studies) {
+  const cols = ['session_id', 'pid', 'study', 'rec', 'cond', 'status', 'created_at', 'completed_at',
+    'career', 'location', 'familiarity', 'interest_strength', 'c_duration_sec', 'c_turns',
+    'c_ended_by', 'free_turns', 'ios_pre', 'ios_post', 'fscs_pre_mean', 'fscs_post_mean',
+    'viv_pre_mean', 'viv_post_mean',
+    'cdse_sa_pre_mean', 'cdse_sa_post_mean', 'cip_cca_pre_mean', 'cip_cca_post_mean',
+    'mc_style', 'mc_scene', 'mc_understand'];
+  const esc = (x) => { const s = x == null ? '' : String(x); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+  const rows = studies.map((s) => {
+    const meta = s.meta || {}, pb = s.phaseB || {}, pc = s.phaseC || {}, fc = s.freeContinuation || {};
+    const pre = s.preSurvey || {}, post = s.postSurvey || {};
+    return [meta.sessionId, meta.pid, meta.study, meta.rec, meta.condition,
+      meta.status, meta.createdAt, meta.completedAt,
+      pb.career, pb.location, pb.familiarity, pb.interestStrength, pc.durationSec, pc.turnCount,
+      pc.endedBy, fc.turnCount, pre.ios_pre, post.ios_post,
+      CSV_MEAN(pre, ['fscs_similar', 'fscs_connected']), CSV_MEAN(post, ['fscs_similar_post', 'fscs_connected_post']),
+      CSV_MEAN(pre, ['viv_clear', 'viv_tangible', 'viv_detail', 'viv_felt']),
+      CSV_MEAN(post, ['viv_clear_post', 'viv_tangible_post', 'viv_detail_post', 'viv_felt_post']),
+      CSV_MEAN(pre, ['cdse_1', 'cdse_2', 'cdse_3', 'cdse_4', 'cdse_5']),
+      CSV_MEAN(post, ['cdse_1_post', 'cdse_2_post', 'cdse_3_post', 'cdse_4_post', 'cdse_5_post']),
+      CSV_MEAN(pre, ['cip_1', 'cip_2', 'cip_3', 'cip_4', 'cip_5']),
+      CSV_MEAN(post, ['cip_1_post', 'cip_2_post', 'cip_3_post', 'cip_4_post', 'cip_5_post']),
+      post.mc_style, post.mc_scene, post.mc_understand].map(esc).join(',');
+  });
+  return cols.join(',') + '\n' + rows.join('\n') + '\n';
+}
+async function downloadCsv() {
+  const studies = await api('/api/admin/sessions/export');
+  const blob = new Blob([studiesToCsv(studies)], { type: 'text/csv' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = 'runs.csv'; a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+// Participant link that hydrates the run from the server row and continues it
+// where it stopped (any device). The role-play transcript is re-seeded into the
+// model, so the future self remembers the earlier conversation.
+function resumeUrl(r) {
+  const q = new URLSearchParams({ session: r.id, resume: '1' });
+  if (r.condition) q.set('cond', r.condition);
+  if (r.rec) q.set('rec', r.rec);
+  if (r.study) q.set('study', r.study);
+  if (r.pid) q.set('pid', r.pid);
+  return location.origin + '/?' + q.toString();
+}
 
 function SessionDetail({ id, onClose }) {
   const [d, setD] = useState(null);
@@ -171,49 +237,71 @@ function SessionDetail({ id, onClose }) {
   const study = d.study || {};
   const tb = (study.phaseB && study.phaseB.transcript) || [];
   const tc = (study.phaseC && study.phaseC.transcript) || [];
+  const fc = (study.freeContinuation && study.freeContinuation.transcript) || [];
   const surv = (obj) => Object.entries(obj || {}).filter(([k]) => k !== 'contact');
+  const pb = study.phaseB || {}, pc = study.phaseC || {}, meta = study.meta || {};
+  const downloadJson = () => {
+    const blob = new Blob([JSON.stringify(study, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = id + '.json'; a.click();
+  };
   return (
     <div className="overlay" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <span className="close" onClick={onClose}>×</span>
-        <h2>Session <code className="id">{short(id)}</code> <Pill s={d.status} /> <span className="muted" style={{ fontSize: 14 }}>{d.condition}</span></h2>
-        <p className="muted">Created {fmt(d.created_at)} · Completed {fmt(d.completed_at)}</p>
-        <div className="grid2" style={{ marginTop: 12 }}>
+        <h2>
+          Session <code className="id">{short(id)}</code> <Pill s={d.status} />
+          <span className="muted" style={{ fontSize: 14 }}>{meta.rec || '—'} × {d.condition}{meta.pid ? ' · ' + meta.pid : ''}</span>
+        </h2>
+        <p className="muted" style={{ margin: '2px 0 14px' }}>
+          Created {fmt(d.created_at)} · Completed {fmt(d.completed_at)}
+        </p>
+        <div className="row" style={{ marginBottom: 16 }}>
+          <a className="btn" href={resumeUrl({ id, condition: d.condition, rec: meta.rec, study: meta.study, pid: meta.pid })} target="_blank" rel="noreferrer">Resume session ↗</a>
+          <button className="btn" onClick={() => navigator.clipboard.writeText(resumeUrl({ id, condition: d.condition, rec: meta.rec, study: meta.study, pid: meta.pid }))}>Copy resume link</button>
+          <button className="btn" onClick={downloadJson}>Download JSON</button>
+        </div>
+        <div className="grid2">
           <div className="panel">
-            <h3>Profile &amp; scores</h3>
+            <h3>Profile, choice &amp; scores</h3>
             <div className="kv">
               <b>Name</b><span>{(study.profile && study.profile.name) || '—'}</span>
-              <b>Career</b><span>{(study.phaseB && study.phaseB.career) || '—'}</span>
-              <b>Big Five</b><span>{study.scores && study.scores.bigFive ? Object.entries(study.scores.bigFive).map(([k, v]) => k + ':' + v).join('  ') : '—'}</span>
-              <b>RIASEC</b><span>{study.scores && study.scores.riasec ? Object.entries(study.scores.riasec).map(([k, v]) => k + ':' + v).join('  ') : '—'}</span>
+              <b>Career</b><span>{pb.career || '—'}</span>
+              <b>Location</b><span>{pb.location || '—'}</span>
+              <b>Familiarity / interest</b><span>{(pb.familiarity != null ? pb.familiarity : '—') + ' / ' + (pb.interestStrength != null ? pb.interestStrength : '—')}</span>
+              <b>C duration</b><span>{pc.durationSec != null ? Math.round(pc.durationSec / 60) + ' min · ' + (pc.turnCount || 0) + ' turns · ended by ' + (pc.endedBy || '—') : '—'}</span>
+              <b>Big Five</b><span>{study.scores && study.scores.bigFive ? Object.entries(study.scores.bigFive).map(([k, v]) => k + ' ' + v).join(' · ') : '—'}</span>
+              <b>RIASEC</b><span>{study.scores && study.scores.riasec ? Object.entries(study.scores.riasec).map(([k, v]) => k + ' ' + v).join(' · ') : '—'}</span>
               <b>Values</b><span>{study.scores && study.scores.values ? [].concat(study.scores.values).join(', ') : '—'}</span>
             </div>
           </div>
           <div className="panel">
-            <h3>Pre-survey</h3>
-            <div className="kv">{surv(study.preSurvey).map(([k, v]) => [<b key={k + 'k'}>{k}</b>, <span key={k + 'v'}>{String(v)}</span>])}</div>
+            <h3>Pre-survey ({surv(study.preSurvey).length} items)</h3>
+            <div className="kv kv-scroll">{surv(study.preSurvey).map(([k, v]) => [<b key={k + 'k'}>{k}</b>, <span key={k + 'v'}>{String(v)}</span>])}</div>
           </div>
           <div className="panel">
-            <h3>Phase B — career guide</h3>
-            <div className="chat">{tb.map((m, i) => <div key={i} className={'bub ' + (m.role === 'user' ? 'user' : 'other')}>{m.text}</div>)}</div>
+            <h3>Phase B — recommendation chat ({tb.length} turns)</h3>
+            <div className="chat">{tb.map((m, i) => <div key={i} className={'bub ' + (m.role === 'user' ? 'user' : 'other')}>{m.text}</div>)}
+              {!tb.length && <p className="muted">No transcript.</p>}</div>
           </div>
           <div className="panel">
-            <h3>Phase C — future self</h3>
-            <div className="chat">{tc.map((m, i) => <div key={i} className={'bub ' + (m.role === 'user' ? 'user' : 'other')}>{m.text}</div>)}</div>
+            <h3>Phase C — future self ({tc.length} turns)</h3>
+            <div className="chat">{tc.map((m, i) => <div key={i} className={'bub ' + (m.role === 'user' ? 'user' : 'other')}>{m.text}</div>)}
+              {!tc.length && <p className="muted">No transcript.</p>}</div>
           </div>
           <div className="panel">
-            <h3>Post-survey</h3>
-            <div className="kv">{surv(study.postSurvey).map(([k, v]) => [<b key={k + 'k'}>{k}</b>, <span key={k + 'v'}>{String(v)}</span>])}</div>
+            <h3>Post-survey ({surv(study.postSurvey).length} items)</h3>
+            <div className="kv kv-scroll">{surv(study.postSurvey).map(([k, v]) => [<b key={k + 'k'}>{k}</b>, <span key={k + 'v'}>{String(v)}</span>])}</div>
           </div>
           <div className="panel">
-            <h3>Raw JSON</h3>
-            <pre className="json">{JSON.stringify(study, null, 2)}</pre>
-            <button className="btn" style={{ marginTop: 8 }} onClick={() => {
-              const blob = new Blob([JSON.stringify(study, null, 2)], { type: 'application/json' });
-              const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = id + '.json'; a.click();
-            }}>Download JSON</button>
+            <h3>Free continuation ({fc.length} turns)</h3>
+            <div className="chat">{fc.map((m, i) => <div key={i} className={'bub ' + (m.role === 'user' ? 'user' : 'other')}>{m.text}</div>)}
+              {!fc.length && <p className="muted">None.</p>}</div>
           </div>
         </div>
+        <details className="raw">
+          <summary>Raw JSON</summary>
+          <pre className="json" style={{ maxHeight: 420 }}>{JSON.stringify(study, null, 2)}</pre>
+        </details>
       </div>
     </div>
   );
@@ -221,32 +309,46 @@ function SessionDetail({ id, onClose }) {
 
 function NewSession({ onClose, onCreated }) {
   const [condition, setCondition] = useState('');
+  const [rec, setRec] = useState('reflective');
+  const [study, setStudy] = useState('kangzhi');
+  const [pid, setPid] = useState('');
   const [link, setLink] = useState(null);
   const create = async () => {
-    const d = await api('/api/admin/sessions', { method: 'POST', body: JSON.stringify({ condition: condition || undefined }) });
-    setLink({ link: location.origin + d.link, condition: d.condition, id: d.id });
+    const d = await api('/api/admin/sessions', { method: 'POST', body: JSON.stringify({
+      condition: condition || undefined, rec, study: study || undefined, pid: pid || undefined,
+    }) });
+    setLink({ link: location.origin + d.link, condition: d.condition, rec: d.rec, study: d.study, id: d.id });
     onCreated && onCreated();
   };
   return (
     <div className="overlay" onClick={onClose}>
-      <div className="modal" style={{ width: 480 }} onClick={(e) => e.stopPropagation()}>
+      <div className="modal" style={{ width: 520 }} onClick={(e) => e.stopPropagation()}>
         <span className="close" onClick={onClose}>×</span>
         <h2>New participant session</h2>
         {!link ? (
           <div>
-            <p className="muted">Pick a condition or leave blank for balanced auto-assignment.</p>
-            <div className="row">
-              <select value={condition} onChange={(e) => setCondition(e.target.value)}>
-                <option value="">Balanced (auto)</option>
-                <option value="main">main</option>
-                <option value="baseline">baseline</option>
-              </select>
+            <p className="muted">Leave condition blank for balanced auto-assignment. Rec = stage-B prompt (reflective = default; direct = Andrea's second arm; guide = backup).</p>
+            <div className="row" style={{ marginBottom: 8 }}>
+              <label>Cond&nbsp;
+                <select value={condition} onChange={(e) => setCondition(e.target.value)}>
+                  <option value="">Balanced (auto)</option><option value="main">main</option><option value="baseline">baseline</option>
+                </select>
+              </label>
+              <label>Rec&nbsp;
+                <select value={rec} onChange={(e) => setRec(e.target.value)}>
+                  <option value="reflective">reflective</option><option value="direct">direct</option><option value="guide">guide</option>
+                </select>
+              </label>
+            </div>
+            <div className="row" style={{ marginBottom: 10 }}>
+              <label>Study&nbsp;<input type="text" value={study} onChange={(e) => setStudy(e.target.value)} style={{ width: 110 }} /></label>
+              <label>PID&nbsp;<input type="text" value={pid} onChange={(e) => setPid(e.target.value)} placeholder="K017" style={{ width: 90 }} /></label>
               <button className="btn pri" onClick={create}>Create &amp; get link</button>
             </div>
           </div>
         ) : (
           <div>
-            <p>Condition: <b>{link.condition}</b> · id <code className="id">{short(link.id)}</code></p>
+            <p>{link.study} · rec <b>{link.rec}</b> · cond <b>{link.condition}</b> · id <code className="id">{short(link.id)}</code></p>
             <div className="link-box">{link.link}</div>
             <button className="btn" style={{ marginTop: 10 }} onClick={() => navigator.clipboard.writeText(link.link)}>Copy link</button>
           </div>
@@ -285,15 +387,19 @@ function SessionsView() {
         <button className="btn" onClick={load}>Refresh</button>
         <div className="spacer"></div>
         <button className="btn pri" onClick={() => setCreating(true)}>+ New session</button>
+        <button className="btn" onClick={() => downloadCsv().catch((e) => setErr(e.message))}>Export CSV (tidy)</button>
         <button className="btn" onClick={() => { location.href = '/api/admin/sessions/export'; }}>Export all (JSON)</button>
         <button className="btn" onClick={() => { location.href = '/api/admin/sessions/export?deidentify=1'; }}>Export de-identified</button>
       </div>
       <table>
-        <thead><tr><th>ID</th><th>Condition</th><th>Status</th><th>Career</th><th>Phase-C turns</th><th>Created</th><th>Completed</th><th></th></tr></thead>
+        <thead><tr><th>ID</th><th>PID</th><th>Study</th><th>Rec</th><th>Cond</th><th>Status</th><th>Career</th><th>C-turns</th><th>Created</th><th>Completed</th><th></th></tr></thead>
         <tbody>
           {rows.map((r) => (
             <tr key={r.id}>
               <td><code className="id">{short(r.id)}</code></td>
+              <td className="muted">{r.pid || '—'}</td>
+              <td className="muted">{r.study || '—'}</td>
+              <td>{r.rec || '—'}</td>
               <td>{r.condition}</td>
               <td><Pill s={r.status} /></td>
               <td>{r.career || <span className="muted">—</span>}</td>
@@ -302,11 +408,13 @@ function SessionsView() {
               <td className="muted">{fmt(r.completed_at)}</td>
               <td className="row">
                 <button className="btn" onClick={() => setOpen(r.id)}>Open</button>
+                <a className="btn" href={resumeUrl(r)} target="_blank" rel="noreferrer"
+                  title="Continue this run where it stopped (works on any device; the future self keeps its memory)">Resume ↗</a>
                 <button className="btn danger" onClick={() => del(r.id)}>Delete</button>
               </td>
             </tr>
           ))}
-          {!rows.length && <tr><td colSpan="8" className="muted">No sessions yet.</td></tr>}
+          {!rows.length && <tr><td colSpan="11" className="muted">No sessions yet.</td></tr>}
         </tbody>
       </table>
       {open && <SessionDetail id={open} onClose={() => setOpen(null)} />}
@@ -496,8 +604,204 @@ function SimView() {
   );
 }
 
+// --- Launcher: pick a chatbot version (study cell), batch-mint participant
+// links with sequential PIDs, copy the list, send each link to one participant.
+const LAUNCH_CELLS = [
+  { key: 'k-main', label: 'Kangzhi · reflective × main', study: 'kangzhi', rec: 'reflective', cond: 'main', prefix: 'K' },
+  { key: 'k-base', label: 'Kangzhi · reflective × baseline', study: 'kangzhi', rec: 'reflective', cond: 'baseline', prefix: 'K' },
+  { key: 'a-refl', label: 'Andrea · reflective × main', study: 'andrea', rec: 'reflective', cond: 'main', prefix: 'A' },
+  { key: 'a-dir', label: 'Andrea · direct × main', study: 'andrea', rec: 'direct', cond: 'main', prefix: 'A' },
+  { key: 'custom', label: 'Custom combination', custom: true, prefix: 'X' },
+];
+
+// Generated batches survive tab switches and reloads (they used to vanish the
+// moment the view unmounted).
+const BATCH_KEY = 'admin_recruit_batches_v1';
+const readBatches = () => { try { return JSON.parse(localStorage.getItem(BATCH_KEY) || '[]'); } catch (e) { return []; } };
+const writeBatches = (b) => { try { localStorage.setItem(BATCH_KEY, JSON.stringify(b.slice(0, 30))); } catch (e) {} };
+
+function RecruitView() {
+  const [cellKey, setCellKey] = useState('k-main');
+  const [custom, setCustom] = useState({ study: 'kangzhi', rec: 'reflective', cond: 'main' });
+  const [count, setCount] = useState(5);
+  const [prefix, setPrefix] = useState('K');
+  const [start, setStart] = useState(1);
+  const [busy, setBusy] = useState(false);
+  const [batches, setBatches] = useState(readBatches);
+  const [copied, setCopied] = useState(null);
+  const [err, setErr] = useState(null);
+  const cell = LAUNCH_CELLS.find((c) => c.key === cellKey);
+  const axes = cell.custom ? custom : cell;
+  const pick = (c) => { setCellKey(c.key); setPrefix(c.prefix); setCopied(null); };
+  const previewUrl = () => {
+    const q = new URLSearchParams({ cond: axes.cond, rec: axes.rec, study: axes.study, preview: '1' });
+    return location.origin + '/?' + q.toString();
+  };
+  const generate = async () => {
+    setBusy(true); setErr(null); setCopied(null);
+    const lines = [];
+    try {
+      const n = Math.max(1, Math.min(50, Number(count) || 1));
+      for (let i = 0; i < n; i++) {
+        const pid = prefix.trim() ? prefix.trim().toUpperCase() + String(Number(start) + i).padStart(3, '0') : undefined;
+        const d = await api('/api/admin/sessions', { method: 'POST', body: JSON.stringify({
+          condition: axes.cond, rec: axes.rec, study: axes.study, pid,
+        }) });
+        lines.push({ pid: pid || short(d.id), link: location.origin + d.link });
+      }
+      const batch = { ts: new Date().toISOString(), label: `${axes.study} · ${axes.rec} × ${axes.cond}`, lines };
+      const next = [batch, ...batches];
+      setBatches(next); writeBatches(next);
+      if (prefix.trim()) setStart(Number(start) + lines.length);
+    } catch (e) { setErr(e.message); }
+    finally { setBusy(false); }
+  };
+  const copyBatch = (i) => {
+    navigator.clipboard.writeText(batches[i].lines.map((l) => l.pid + '\t' + l.link).join('\n'));
+    setCopied(i);
+  };
+  const removeBatch = (i) => {
+    const next = batches.filter((_, j) => j !== i);
+    setBatches(next); writeBatches(next);
+  };
+  return (
+    <div>
+      <div className="note">
+        <b>Recruit participants</b> — pick the chatbot version (study cell), mint as many personal links
+        as you need, and send <b>one link to one participant</b>. Each link locks its condition and carries
+        a sequential participant ID; the session row appears under Sessions the moment they consent.
+        Generated batches stay here (stored in this browser) until you remove them.
+      </div>
+      <div className="panel" style={{ marginBottom: 16 }}>
+        <h3>1 · Chatbot version</h3>
+        <div className="row" style={{ marginBottom: 10 }}>
+          {LAUNCH_CELLS.map((c) => (
+            <button key={c.key} className={'btn' + (cellKey === c.key ? ' pri' : '')} onClick={() => pick(c)}>{c.label}</button>
+          ))}
+        </div>
+        {cell.custom && (
+          <div className="row" style={{ marginBottom: 4 }}>
+            <label>Study&nbsp;<input type="text" value={custom.study} onChange={(e) => setCustom({ ...custom, study: e.target.value })} style={{ width: 100 }} /></label>
+            <label>Rec&nbsp;
+              <select value={custom.rec} onChange={(e) => setCustom({ ...custom, rec: e.target.value })}>
+                <option value="reflective">reflective</option><option value="direct">direct</option><option value="guide">guide</option>
+              </select>
+            </label>
+            <label>Cond&nbsp;
+              <select value={custom.cond} onChange={(e) => setCustom({ ...custom, cond: e.target.value })}>
+                <option value="main">main</option><option value="baseline">baseline</option>
+              </select>
+            </label>
+          </div>
+        )}
+        <div className="row" style={{ marginBottom: 4 }}>
+          <a className="btn" href={previewUrl()} target="_blank" rel="noreferrer"
+            title="Open this combination as a test drive: nothing is saved, and every step can be skipped without filling anything in.">
+            Test drive this version ↗ <span className="muted">(no data saved)</span>
+          </a>
+        </div>
+        <h3 style={{ marginTop: 14 }}>2 · How many participants</h3>
+        <div className="row">
+          <label>Links <input type="number" min="1" max="50" value={count} onChange={(e) => setCount(e.target.value)} style={{ width: 64 }} /></label>
+          <label>PID prefix <input type="text" value={prefix} onChange={(e) => setPrefix(e.target.value)} style={{ width: 56 }} /></label>
+          <label>from # <input type="number" min="1" value={start} onChange={(e) => setStart(e.target.value)} style={{ width: 72 }} /></label>
+          <button className="btn pri" disabled={busy} onClick={generate}>{busy ? 'Generating…' : 'Generate links'}</button>
+          {err && <span className="err-inline">{err}</span>}
+        </div>
+      </div>
+      {batches.map((b, i) => (
+        <div className="panel" style={{ marginBottom: 14 }} key={b.ts}>
+          <h3>{b.lines.length} link{b.lines.length > 1 ? 's' : ''} · {b.label} · {fmt(b.ts)}</h3>
+          <div className="row" style={{ marginBottom: 10 }}>
+            <button className="btn" onClick={() => copyBatch(i)}>{copied === i ? 'Copied ✓' : 'Copy all (PID + link)'}</button>
+            <button className="btn danger" onClick={() => removeBatch(i)}>Remove from this list</button>
+          </div>
+          <div className="kv kv-scroll" style={{ gridTemplateColumns: 'max-content 1fr', maxHeight: 320 }}>
+            {b.lines.map((l) => [
+              <b key={l.pid + 'k'}>{l.pid}</b>,
+              <span key={l.pid + 'v'}><a href={l.link} target="_blank" rel="noreferrer">{l.link}</a></span>,
+            ])}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function DescriptivesView() {
+  const [studies, setStudies] = useState(null);
+  const [err, setErr] = useState(null);
+  useEffect(() => { api('/api/admin/sessions/export').then(setStudies).catch((e) => setErr(e.message)); }, []);
+  if (err) return <div className="note">{err}</div>;
+  if (!studies) return <p className="muted">Loading…</p>;
+  const m = (xs) => { const v = xs.map(Number).filter((x) => !Number.isNaN(x)); return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null; };
+  const f2 = (x) => (x == null ? '—' : x.toFixed(2));
+  const d2 = (a, b) => (a == null || b == null ? '—' : (b - a >= 0 ? '+' : '') + (b - a).toFixed(2));
+  const perPerson = (objs, ids) => objs.map((o) => m(ids.map((id) => o[id]))).filter((x) => x != null);
+  const groups = {};
+  for (const s of studies) { const c = (s.meta && s.meta.condition) || 'main'; (groups[c] = groups[c] || []).push(s); }
+  const stat = (list) => {
+    const pre = list.map((s) => s.preSurvey || {}), post = list.map((s) => s.postSurvey || {});
+    return {
+      n: list.length,
+      completed: list.filter((s) => s.meta && s.meta.completedAt).length,
+      iosPre: m(pre.map((o) => o.ios_pre)), iosPost: m(post.map((o) => o.ios_post)),
+      fPre: m(perPerson(pre, ['fscs_similar', 'fscs_connected'])),
+      fPost: m(perPerson(post, ['fscs_similar_post', 'fscs_connected_post'])),
+      vPre: m(perPerson(pre, ['viv_clear', 'viv_tangible', 'viv_detail', 'viv_felt'])),
+      vPost: m(perPerson(post, ['viv_clear_post', 'viv_tangible_post', 'viv_detail_post', 'viv_felt_post'])),
+      // v5.1 distal outcomes — note the native ranges (CDSE /5, CIP /6).
+      cdPre: m(perPerson(pre, ['cdse_1', 'cdse_2', 'cdse_3', 'cdse_4', 'cdse_5'])),
+      cdPost: m(perPerson(post, ['cdse_1_post', 'cdse_2_post', 'cdse_3_post', 'cdse_4_post', 'cdse_5_post'])),
+      ciPre: m(perPerson(pre, ['cip_1', 'cip_2', 'cip_3', 'cip_4', 'cip_5'])),
+      ciPost: m(perPerson(post, ['cip_1_post', 'cip_2_post', 'cip_3_post', 'cip_4_post', 'cip_5_post'])),
+    };
+  };
+  const conds = Object.keys(groups).sort();
+  return (
+    <div>
+      <div className="note">Live per-condition descriptives (Build Plan §14). Means over stored responses; Δ = post − pre. Descriptive only — t-test / ANCOVA / Cronbach's α are phase 2 (run <b>analysis.py</b> on the exported data).</div>
+      <table>
+        <thead><tr><th>Condition</th><th>N</th><th>Completed</th><th>IOS pre → post (Δ) /7</th><th>FSCS pre → post (Δ) /7</th><th>Vividness pre → post (Δ) /7</th><th>CDSE-SA pre → post (Δ) /5</th><th>CIP-CCA pre → post (Δ) /6</th></tr></thead>
+        <tbody>
+          {conds.map((c) => { const s = stat(groups[c]); return (
+            <tr key={c}>
+              <td><b>{c}</b></td><td>{s.n}</td><td>{s.completed}</td>
+              <td>{f2(s.iosPre)} → {f2(s.iosPost)} <span className="muted">({d2(s.iosPre, s.iosPost)})</span></td>
+              <td>{f2(s.fPre)} → {f2(s.fPost)} <span className="muted">({d2(s.fPre, s.fPost)})</span></td>
+              <td>{f2(s.vPre)} → {f2(s.vPost)} <span className="muted">({d2(s.vPre, s.vPost)})</span></td>
+              <td>{f2(s.cdPre)} → {f2(s.cdPost)} <span className="muted">({d2(s.cdPre, s.cdPost)})</span></td>
+              <td>{f2(s.ciPre)} → {f2(s.ciPost)} <span className="muted">({d2(s.ciPre, s.ciPost)})</span></td>
+            </tr>
+          ); })}
+          {!conds.length && <tr><td colSpan="8" className="muted">No sessions yet.</td></tr>}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+// Every admin tab needs the database; when it's down each one fails with its own
+// cryptic error. One probe up front turns that into a single actionable banner.
+function DbHealthBanner() {
+  const [health, setHealth] = useState(null);
+  useEffect(() => {
+    fetch('/healthz').then((r) => r.json()).then(setHealth).catch(() => {});
+  }, []);
+  if (!health || health.db) return null;
+  const d = health.db_detail || {};
+  return (
+    <div className="note" style={{ margin: '18px 24px 0', maxWidth: 1132, marginLeft: 'auto', marginRight: 'auto',
+      borderColor: 'var(--accent)', background: 'var(--accent-soft)', color: 'var(--accent-ink)' }}>
+      <b>Database not connected</b> — every list / export below will fail until this is fixed.<br/>
+      Probe: <code>{d.reason || 'unknown'}</code>{d.host ? <> · target host <code>{d.host}</code></> : null}
+      {d.hint ? <><br/><b>Fix:</b> {d.hint}</> : null}
+    </div>
+  );
+}
+
 function App() {
-  const [tab, setTab] = useState('sessions');
+  const [tab, setTab] = useState('recruit');
   const [dark, setDark] = useState(() => document.documentElement.getAttribute('data-theme') === 'dark');
   const toggleTheme = () => {
     const next = dark ? 'light' : 'dark';
@@ -512,7 +816,9 @@ function App() {
         <span className="brand"><span className="dot"></span>Thesis</span>
         <span className="eyebrow-tag">Study admin</span>
         <div className="tabs">
+          <div className={'tab' + (tab === 'recruit' ? ' on' : '')} onClick={() => setTab('recruit')}>Recruit</div>
           <div className={'tab' + (tab === 'sessions' ? ' on' : '')} onClick={() => setTab('sessions')}>Sessions</div>
+          <div className={'tab' + (tab === 'desc' ? ' on' : '')} onClick={() => setTab('desc')}>Descriptives</div>
           <div className={'tab' + (tab === 'eval' ? ' on' : '')} onClick={() => setTab('eval')}>Eval runs</div>
           <div className={'tab' + (tab === 'sim' ? ' on' : '')} onClick={() => setTab('sim')}>Simulations</div>
         </div>
@@ -522,7 +828,8 @@ function App() {
         <button className="icon-btn" onClick={toggleTheme} title="Toggle light / dark">{dark ? '☀' : '☾'}</button>
         <button className="btn" onClick={logout}>Sign out</button>
       </header>
-      <main>{tab === 'sessions' ? <SessionsView /> : tab === 'eval' ? <EvalView /> : <SimView />}</main>
+      <DbHealthBanner />
+      <main>{tab === 'recruit' ? <RecruitView /> : tab === 'sessions' ? <SessionsView /> : tab === 'desc' ? <DescriptivesView /> : tab === 'eval' ? <EvalView /> : <SimView />}</main>
     </div>
   );
 }

@@ -100,15 +100,25 @@ const ok = (msg) => console.log('✓ ' + msg);
   click(byText('Continue')); await tick();
   ok('Avatar set');
 
-  // 4. Pre-survey (5 pages)
-  for (let p = 0; p < 5; p++) {
-    if (!window.document.querySelector('.sv-wrap')) fail(`Pre-survey page ${p + 1} missing`);
+  // 4. Pre-survey — short pages (~5 items each); loop until the paged survey's
+  // progress bar disappears (the pause screen that follows has none).
+  let prePages = 0;
+  while (window.document.querySelector('.flow-progress') && prePages < 15) {
+    if (!window.document.querySelector('.sv-wrap')) fail(`Pre-survey page ${prePages + 1} missing`);
     autofillCurrent(); await tick();
     const btn = byText('Done') || byText('Continue');
-    if (btn.disabled) fail(`Pre-survey page ${p + 1} did not validate (button disabled)`);
+    if (btn.disabled) fail(`Pre-survey page ${prePages + 1} did not validate (button disabled)`);
     click(btn); await tick();
+    prePages++;
   }
-  ok('Pre-survey completed (5 pages)');
+  if (prePages < 6) fail(`Pre-survey ended after only ${prePages} pages`);
+  ok(`Pre-survey completed (${prePages} pages)`);
+
+  // 4b. Pause A→B ("Take a breath") — advances only on Continue
+  await tick();
+  if (!byText('Continue')) fail('Pause A→B did not render');
+  click(byText('Continue')); await tick(60);
+  ok('Pause A→B advanced on Continue');
 
   // 5. Phase B
   await tick(60);
@@ -128,21 +138,49 @@ const ok = (msg) => console.log('✓ ' + msg);
   click(stepBtn); await tick(80);
   ok('Phase B completed (card selected + career locked: Data analyst)');
 
+  // 5b. Pause B→C ("Begin" starts the phase-c clock)
+  if (!byText('Begin')) fail('Pause B→C did not render');
+  click(byText('Begin')); await tick(80);
+  ok('Pause B→C advanced on Begin');
+
   // 6. Phase C role-play
   if (!window.document.querySelector('.chat-app')) fail('Phase C chat did not render');
   if (!/in ten years|it's me/i.test(window.document.body.textContent)) fail('Phase C opener missing');
   ok('Phase C rendered with model opener');
   click(byText('Finish')); await tick();
 
-  // 7. Post-survey (4 pages)
-  for (let p = 0; p < 4; p++) {
-    if (!window.document.querySelector('.sv-wrap')) fail(`Post-survey page ${p + 1} missing`);
+  // 6b. Pause C→POST ("Thank you") — advances only on Continue
+  if (!byText('Continue')) fail('Pause C→POST did not render');
+  click(byText('Continue')); await tick();
+  ok('Pause C→POST advanced on Continue');
+
+  // 7. Post-survey — short pages; loop until the progress bar disappears.
+  let postPages = 0;
+  while (window.document.querySelector('.flow-progress') && postPages < 12) {
+    if (!window.document.querySelector('.sv-wrap')) fail(`Post-survey page ${postPages + 1} missing`);
     autofillCurrent(); await tick();
     const btn = byText('Done') || byText('Continue');
-    if (btn.disabled) fail(`Post-survey page ${p + 1} did not validate`);
+    if (btn.disabled) fail(`Post-survey page ${postPages + 1} did not validate`);
     click(btn); await tick();
+    postPages++;
   }
-  ok('Post-survey completed (4 pages)');
+  if (postPages < 5) fail(`Post-survey ended after only ${postPages} pages`);
+  ok(`Post-survey completed (${postPages} pages)`);
+
+  // 7b. Post-study hub: keep talking / different career / finish (outside analysis)
+  await tick();
+  if (!byText('Keep talking')) fail('Post-study hub did not render');
+  if (!byText('different career')) fail('Hub is missing the explore-another-career option');
+  ok('Post-study hub rendered with its options');
+  click(byText('Keep talking')); await tick(60);
+
+  // 7c. Free continuation (optional, logged separately) — done returns to the hub
+  const doneBtn = byText("I'm done");
+  if (!doneBtn) fail('Free continuation screen did not render');
+  click(doneBtn); await tick();
+  if (!byText('finish up')) fail('Free continuation did not return to the hub');
+  click(byText('finish up')); await tick();
+  ok('Free continuation rendered, returned to hub, finished');
 
   // 8. Closure + data export
   if (!/Thank you/i.test(window.document.body.textContent)) fail('Closure did not render');

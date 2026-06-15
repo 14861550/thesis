@@ -5,16 +5,15 @@ const { useState } = React;
    LANDING — minimal, centered, no decorative graphic
    ============================================================ */
 function Landing({ onBegin }) {
+  // Minimal-first landing (2026-06-11): the hero is the whole page; everything
+  // explanatory lives behind "How it works" (shown on demand, not inline).
+  const [showHow, setShowHow] = React.useState(false);
   return (
     <div data-screen-label="01 Landing">
       <nav className="topnav">
         <div className="brand"><BrandMark size={22}/><span>Thesis</span></div>
-        <div className="nav-links">
-          <a href="#how" onClick={(e) => { e.preventDefault(); document.getElementById('how')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }}>How it works</a>
-          <a href="#about" onClick={(e) => { e.preventDefault(); document.getElementById('about')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }}>About the study</a>
-        </div>
         <div className="end">
-          <button className="btn ghost sm" onClick={onBegin}>Sign in</button>
+          <button className="btn ghost sm" onClick={() => setShowHow(true)}>How it works</button>
         </div>
       </nav>
 
@@ -34,45 +33,66 @@ function Landing({ onBegin }) {
             Begin
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true"><path d="M3 7h8M7 3l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
           </button>
-          <button className="btn ghost lg" onClick={() => document.getElementById('how')?.scrollIntoView({behavior: 'smooth', block: 'start'})}>How it works</button>
+          <button className="btn ghost lg" onClick={() => setShowHow(true)}>How it works</button>
         </div>
         <div className="hero-foot">
-          <span className="pill">~ 15 minute session</span>
-          <span className="pill">A role-play, not a recommendation</span>
+          <span className="pill">A conversation with your future self</span>
         </div>
-      </section>
-
-      <section className="howit" id="how">
-        <h2>How a session works</h2>
-        <p className="lede">
-          Three short steps, then a conversation. Before the chat, you answer some
-          questions to make the future self sound specifically like you.
+        {/* Time framing (§11 fatigue): stages first, total second, and the
+            reassurance that pausing/leaving doesn't lose anything. */}
+        <p className="hero-time">
+          A short questionnaire (~10 min) · choosing a career to step into (~10–15 min) · the conversation itself (20–30 min, you decide) — about an hour in all.
+          <br/>Breaks are built in between parts, and you can pause or close the page at any point — your progress is saved and you continue where you left off.
         </p>
-        <div className="steps">
-          <div className="step">
-            <span className="num">STEP 01</span>
-            <h3>A short profile</h3>
-            <p>A few questions about your interests, what you want from work, and where
-              you are in your studies. This grounds the future self in who you actually are.</p>
-          </div>
-          <div className="step">
-            <span className="num">STEP 02</span>
-            <h3>Choose a future</h3>
-            <p>We surface a handful of careers worth exploring. You pick the one you're
-              most curious to step into — and you can switch later.</p>
-          </div>
-          <div className="step">
-            <span className="num">STEP 03</span>
-            <h3>Have the conversation</h3>
-            <p>Talk with yourself, ten years on, working in that career. Your future self
-              speaks in scenes, not summaries — and won't tell you what to do.</p>
-          </div>
-        </div>
       </section>
 
-      <div className="fineprint" id="about">
+      {showHow && (
+        <div className="how-overlay" onClick={() => setShowHow(false)} role="dialog" aria-label="How a session works">
+          <div className="how-modal" onClick={(e) => e.stopPropagation()}>
+            <button className="how-close" onClick={() => setShowHow(false)} aria-label="Close">×</button>
+            <h2>How a session works</h2>
+            <p className="lede">
+              Three short steps, then a conversation. Before the chat, you'll answer some
+              questions about yourself and how you see your future.
+            </p>
+            <div className="steps">
+              <div className="step">
+                <span className="num">STEP 01 · ~10 MIN</span>
+                <h3>A short profile</h3>
+                <p>A few questions about your interests, what you want from work, and where
+                  you are in your studies. This grounds the future self in who you actually are.</p>
+              </div>
+              <div className="step">
+                <span className="num">STEP 02 · ~10–15 MIN</span>
+                <h3>Choose a future</h3>
+                <p>We surface a handful of careers worth exploring. You pick the one you're
+                  most curious to step into — and you can switch later.</p>
+              </div>
+              <div className="step">
+                <span className="num">STEP 03 · 20–30 MIN</span>
+                <h3>Have the conversation</h3>
+                <p>Talk with yourself, ten years on, working in that career. The future self
+                  will speak in scenes, not summaries — and it won't tell you what to do.</p>
+              </div>
+            </div>
+            <p className="how-about">
+              This is a research prototype from a BSc Business Analytics thesis at the University of
+              Amsterdam, grounded in Identity-Based Motivation (Oyserman) and Future Self-Continuity
+              (Hershfield). You move at your own pace: there are rest points between parts, a break
+              reminder during long conversations, and your progress is saved as you go. And once the
+              study questions are done, the session opens up — keep talking with your future self, or
+              step into entirely different careers, as many as you like.
+            </p>
+            <button className="btn accent" onClick={() => { setShowHow(false); onBegin(); }}>
+              Begin
+              <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M3 6.5h7M6.5 3l4 3.5-4 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div className="fineprint">
         <div className="left"><BrandMark size={14}/><span>Thesis · BSc Business Analytics prototype · UvA 2026</span></div>
-        <div>Grounded in Identity-Based Motivation (Oyserman) &amp; Future Self-Continuity (Hershfield)</div>
       </div>
     </div>
   );
@@ -240,7 +260,7 @@ function Consent({ onAgree, onBack }) {
           <div className="eyebrow"><span className="dot" />Before we begin</div>
           <h2 className="consent-title">Informed consent</h2>
           <div className="consent-body">
-            <p>This is a research prototype from a BSc Business Analytics thesis at the University of Amsterdam. You'll fill in a short questionnaire, have a guided conversation to choose a career, then talk with an AI role-playing your future self in that career. Afterwards you'll answer a few reflection questions. The whole session takes about 45–60 minutes.</p>
+            <p>This is a research prototype from a BSc Business Analytics thesis at the University of Amsterdam. You'll fill in a short questionnaire, have a guided conversation to choose a career, then talk with an AI role-playing your future self in that career. Afterwards you'll answer a few reflection questions. The whole session takes about 50–60 minutes, is completed unsupervised on your own device, and your responses are stored on a secure cloud server.</p>
             <ul>
               <li>Participation is <strong>voluntary</strong>; you may stop at any time without giving a reason.</li>
               <li>Your questionnaire answers and the conversation are processed to run the study and may be analysed in anonymised form.</li>
@@ -261,7 +281,7 @@ function Consent({ onAgree, onBack }) {
           Back
         </button>
         <span className="step-label">Consent</span>
-        <button className="btn accent" disabled={!checked} onClick={onAgree}>
+        <button className="btn accent" disabled={!checked && !(typeof window !== 'undefined' && window.THESIS_PREVIEW)} onClick={onAgree}>
           I agree — continue
           <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M3 6.5h7M6.5 3l4 3.5-4 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
         </button>
@@ -270,4 +290,162 @@ function Consent({ onAgree, onBack }) {
   );
 }
 
-Object.assign(window, { Landing, AvatarCreation, Questionnaire, QUESTIONS, SWATCHES, Consent });
+/* ============================================================
+   PAUSE — "Take a breath" interstitial between stages (§3.9 / §15).
+   A calm, near-empty screen that names what's done and what's next and
+   advances ONLY when the participant presses Continue (never timed/auto).
+   The B→C pause's Continue is what starts the Phase-C clock (the role-play
+   mounts on continue), so resting here costs no conversation time.
+   ============================================================ */
+function Pause({ title, lines = [], cta = 'Continue', eyebrow = 'Take a breath', onContinue }) {
+  return (
+    <div className="flow">
+      <nav className="topnav">
+        <div className="brand"><BrandMark size={22} /><span>Thesis</span></div>
+        <div className="end" />
+      </nav>
+      <div className="flow-body">
+        <div className="sv-wrap" style={{ textAlign: 'center' }}>
+          <div className="eyebrow" style={{ justifyContent: 'center' }}><span className="dot" />{eyebrow}</div>
+          <h2 className="consent-title">{title}</h2>
+          {lines.map((t, i) => (
+            <p key={i} className="sv-intro"
+              style={{ maxWidth: '48ch', margin: '0 auto 14px', color: i ? 'var(--muted)' : undefined }}>{t}</p>
+          ))}
+          <button className="btn accent" style={{ marginTop: 10 }} onClick={onContinue}>
+            {cta}
+            <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M3 6.5h7M6.5 3l4 3.5-4 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ============================================================
+   COMFORT & DISPLAY SETTINGS (participant-facing — Build Plan §16/§16a)
+   A small floating "Aa" control: text size, theme, line spacing, reading width,
+   motion. Theme routes through the shared tweak (one source of truth); the rest
+   are applied as data-attributes on <html> (see styles.css) and remembered in
+   localStorage. Shown to everyone — unlike the researcher Tweaks panel.
+   To match the Build Plan's opinionated defaults (A++/Dark/Roomy/Wide), change
+   COMFORT_DEFAULTS + the theme default; kept neutral here so nothing looks off.
+   ============================================================ */
+// v3 key: defaults changed 2026-06-11 — reading font Sans, text size MAX
+// (A+++); bumping the key applies the new defaults to devices that stored old
+// ones. Serif and smaller sizes stay available in the panel.
+const COMFORT_KEY = 'thesis_comfort_v3';
+const COMFORT_DEFAULTS = { size: 'xl', spacing: 'roomy', width: 'wide', motion: 'full', font: 'sans' };
+
+function ComfortSettings({ tweaks, setTweak }) {
+  const [open, setOpen] = React.useState(false);
+  const [c, setC] = React.useState(() => {
+    try { return { ...COMFORT_DEFAULTS, ...JSON.parse(localStorage.getItem(COMFORT_KEY) || '{}') }; }
+    catch (e) { return { ...COMFORT_DEFAULTS }; }
+  });
+  React.useEffect(() => {
+    const h = document.documentElement;
+    h.dataset.size = c.size; h.dataset.spacing = c.spacing;
+    h.dataset.width = c.width; h.dataset.motion = c.motion; h.dataset.font = c.font;
+    try { localStorage.setItem(COMFORT_KEY, JSON.stringify(c)); } catch (e) {}
+  }, [c]);
+  const set = (k, v) => setC((prev) => ({ ...prev, [k]: v }));
+
+  const Seg = ({ label, k, opts }) => (
+    <div className="comfort-row">
+      <div className="lbl">{label}</div>
+      <div className="comfort-seg">
+        {opts.map((o) => {
+          const active = k === 'theme' ? tweaks.theme === o.v : c[k] === o.v;
+          return (
+            <button key={o.v} className={active ? 'on' : ''}
+              onClick={() => (k === 'theme' ? setTweak('theme', o.v) : set(k, o.v))}>{o.l}</button>
+          );
+        })}
+      </div>
+    </div>
+  );
+
+  return (
+    <>
+      <button className="comfort-fab" aria-label="Comfort and display settings"
+        title="Comfort & display" onClick={() => setOpen((o) => !o)}>Aa</button>
+      {open && (
+        <div className="comfort-panel" role="dialog" aria-label="Comfort settings">
+          <h4>Comfort &amp; display <button className="comfort-close" onClick={() => setOpen(false)} aria-label="Close">✕</button></h4>
+          <Seg label="Text size" k="size" opts={[{ v: 'sm', l: 'A' }, { v: 'md', l: 'A+' }, { v: 'lg', l: 'A++' }, { v: 'xl', l: 'A+++' }]} />
+          <Seg label="Theme" k="theme" opts={[{ v: 'light', l: 'Light' }, { v: 'dark', l: 'Dark' }]} />
+          <Seg label="Reading font" k="font" opts={[{ v: 'serif', l: 'Serif' }, { v: 'sans', l: 'Sans' }]} />
+          <Seg label="Line spacing" k="spacing" opts={[{ v: 'cozy', l: 'Cozy' }, { v: 'roomy', l: 'Roomy' }]} />
+          <Seg label="Reading width" k="width" opts={[{ v: 'narrow', l: 'Narrow' }, { v: 'normal', l: 'Default' }, { v: 'wide', l: 'Wide' }]} />
+          <Seg label="Motion" k="motion" opts={[{ v: 'full', l: 'Full' }, { v: 'reduced', l: 'Reduced' }]} />
+        </div>
+      )}
+    </>
+  );
+}
+
+/* ============================================================
+   RESEARCHER LAUNCHER (test mode only — Build Plan §16b)
+   Shown only with ?test=1 (never to real participants, who open a fixed link).
+   Lets the researcher pick the two routing axes (rec × cond) + study tag and
+   jump straight in, or open the dashboard. Picking an axis reloads with the new
+   query params (which are then locked for the run, exactly like a real link).
+   ============================================================ */
+// Default stage-B = reflective (2026-06-11 decision): Kangzhi's two cells share
+// Andrea's reflective stage B; the guide prompt is a backup (rec=guide).
+const INTENDED_COMBOS = {
+  kangzhi: [['reflective', 'main'], ['reflective', 'baseline']],
+  andrea: [['reflective', 'main'], ['direct', 'main']],
+};
+function isIntended(study, rec, cond) {
+  return (INTENDED_COMBOS[study] || []).some(([r, c]) => r === rec && c === cond);
+}
+
+function Launcher({ condition, rec, study, pid, onStart }) {
+  const nav = (patch) => {
+    const q = new URLSearchParams(window.location.search);
+    Object.entries(patch).forEach(([k, v]) => q.set(k, v));
+    q.set('test', '1');
+    window.location.search = q.toString(); // reload with the chosen axes locked
+  };
+  const Seg = ({ label, cur, k, opts }) => (
+    <div className="comfort-row">
+      <div className="lbl">{label}</div>
+      <div className="comfort-seg">
+        {opts.map((o) => (
+          <button key={o} className={cur === o ? 'on' : ''} onClick={() => nav({ [k]: o })}>{o}</button>
+        ))}
+      </div>
+    </div>
+  );
+  return (
+    <div className="flow">
+      <nav className="topnav">
+        <div className="brand"><BrandMark size={22} /><span>Thesis</span></div>
+        <div className="sv-eyebrow">Researcher launcher · test mode</div>
+        <div className="end" />
+      </nav>
+      <div className="flow-body">
+        <div className="sv-wrap">
+          <div className="eyebrow"><span className="dot" />Test mode (?test=1) — never shown to participants</div>
+          <h2 className="consent-title">Launch a test run</h2>
+          <p className="sv-intro">Pick the two routing axes, then start. Real participants open a fixed personal link and skip this entirely.</p>
+          <Seg label="Rec — stage B prompt" cur={rec} k="rec" opts={['reflective', 'direct', 'guide']} />
+          <Seg label="Cond — stage C prompt" cur={condition} k="cond" opts={['main', 'baseline']} />
+          <Seg label="Study tag" cur={study} k="study" opts={['kangzhi', 'andrea']} />
+          <p className="sv-hint" style={{ marginTop: 6 }}>
+            Current: study=<b>{study}</b> · rec=<b>{rec}</b> · cond=<b>{condition}</b>{pid ? <> · pid=<b>{pid}</b></> : null}
+            {isIntended(study, rec, condition) ? null : <span className="muted"> · ⚠ non-standard combo</span>}
+          </p>
+          <div style={{ display: 'flex', gap: 10, marginTop: 14, flexWrap: 'wrap' }}>
+            <button className="btn accent" onClick={onStart}>Start as participant →</button>
+            <a className="btn ghost" href="/admin" target="_blank" rel="noreferrer">Open dashboard ↗</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+Object.assign(window, { Landing, AvatarCreation, Questionnaire, QUESTIONS, SWATCHES, Consent, Pause, ComfortSettings, Launcher });
