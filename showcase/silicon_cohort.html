@@ -158,10 +158,10 @@
     <span class="eyebrow"><span class="dot"></span>Silicon participants · fidelity study</span>
     <h1 class="title">Can an AI <em>stand in</em> for a real study participant?</h1>
     <p class="lede">
-      We turn real psychometric profiles into LLM <b>“silicon participants,”</b> run each one through the entire
-      future-self career study — it picks a career, talks to the future-self bot, and fills in the questionnaires —
-      and ask how faithfully that reproduces what <b>human</b> participants do. The first result is about a prior
-      question: <b>how much do the simulated outcomes depend on how the persona is built?</b>
+      My thesis turns real psychometric profiles into LLM <b>“silicon participants,”</b> runs each one through the
+      entire future-self study, and measures <b>how faithfully their responses match real people’s</b> — and how the
+      design of the simulation changes that fidelity. Below: the question, the apparatus (built and validated), the
+      supporting evidence, and the one thing it still needs.
     </p>
     <div class="pills">
       <span class="pill"><span class="k">N=30</span> silicon participants</span>
@@ -170,11 +170,49 @@
     </div>
   </header>
 
-  <!-- IDEA -->
+  <!-- THE QUESTION & THE PLAN -->
   <section class="wrap">
-    <div class="kicker">The idea</div>
+    <div class="kicker">The research question</div>
+    <h2>One question, four comparisons.</h2>
+    <div class="card">
+      <h3>The question</h3>
+      <p class="cap" style="font-family:var(--font-serif);font-size:19px;line-height:1.4;color:var(--ink)">
+        How do design choices in an LLM-based <em style="color:var(--accent)">participant simulation</em> affect its
+        agreement with <em style="color:var(--accent)">human responses</em> on the future-self outcomes (continuity,
+        vividness, closeness) — for a 10-year career future-self chatbot?</p>
+      <div class="grid2" style="margin-top:6px">
+        <div><div class="kicker" style="margin-bottom:6px">Independent variable</div>
+          <p class="cap" style="margin:0">The <b>design of the simulation</b> — how richly the persona is conditioned
+          (demographics → + psychometrics → + the person’s own words), and the participant model.</p></div>
+        <div><div class="kicker" style="margin-bottom:6px">Dependent variable</div>
+          <p class="cap" style="margin:0"><b>Fidelity to humans</b> — how closely the simulated responses match real
+          participants’ on the same IBM outcomes.</p></div>
+      </div>
+    </div>
+    <h2 style="margin-top:34px">What “fidelity” means — four levels.</h2>
+    <div class="matters">
+      <div class="matter"><span class="ic">①</span><h4>Means &amp; change</h4>
+        <p>Do silicon and humans land in the same place, and move the same amount pre→post?</p></div>
+      <div class="matter"><span class="ic">②</span><h4>The condition effect</h4>
+        <p>Does the simulation reproduce the human design effect — same direction and size?</p></div>
+      <div class="matter"><span class="ic">③</span><h4>Variance &amp; shape</h4>
+        <p>Do simulated responses <i>spread</i> like real people’s, or flatten? (SD ratio, KS distance.)</p></div>
+      <div class="matter"><span class="ic">④</span><h4>Person-level structure</h4>
+        <p>Do the same trait→outcome links hold (e.g. high neuroticism → lower closeness) in both?</p></div>
+    </div>
+    <div class="honest" style="margin-top:18px;border-left-color:var(--good)">
+      <h4 style="color:var(--good)">Status</h4>
+      <ul><li>The simulation, the metrics, and this page are <b>built and validated</b>. The one missing input is a
+        <b>human benchmark</b> to compare against — ideally per-participant. The evidence below shows the apparatus is
+        ready and that the design choices already move the outcomes.</li></ul>
+    </div>
+  </section>
+
+  <!-- APPARATUS -->
+  <section class="wrap">
+    <div class="kicker">The apparatus</div>
     <h2>Build the participant, not just the chatbot.</h2>
-    <p class="sub">The thesis asks whether LLM-simulated participants can reproduce human study outcomes. Three moves:</p>
+    <p class="sub">A silicon participant is assembled and run end-to-end in three moves:</p>
     <div class="steps">
       <div class="step"><span class="n">01 — REAL PROFILE</span><h3>Start from a real person</h3>
         <p>Each persona carries the real Big-Five + RIASEC + demographics of one respondent in a 145,828-person open
@@ -188,9 +226,9 @@
     </div>
   </section>
 
-  <!-- FINDING 1: face validity -->
+  <!-- EVIDENCE 1: face validity -->
   <section class="wrap">
-    <div class="kicker">Finding 1 · Face validity</div>
+    <div class="kicker">Supporting evidence · 1 of 2</div>
     <h2>The simulated participants <em>react</em> like people.</h2>
     <div class="card">
       <h3>Mean shift in self-reported feelings, before → after the conversation (N=30, 1–7 scale)</h3>
@@ -202,20 +240,22 @@
     </div>
   </section>
 
-  <!-- FINDING 2: the headline -->
+  <!-- EVIDENCE 2: design choices move the outcome -->
   <section class="wrap">
-    <div class="kicker">Finding 2 · The result so far</div>
-    <h2>Richer personas buy <em>variance</em>, not a different average.</h2>
+    <div class="kicker">Supporting evidence · 2 of 2</div>
+    <h2>The simulation’s <em>design</em> already moves the result.</h2>
     <div class="card">
       <h3>Persona-source ablation — full psychometric profile vs. baseline questionnaire only</h3>
-      <p class="cap">Same model, same bot, same 30 people; the only change is how the participant persona is built.
-        Stripping the Big-Five/RIASEC profile leaves the <b>means statistically unchanged</b> (paired-t p = 0.08–0.74)
-        but <b>significantly collapses the between-person variance</b> on 3 of 4 outcomes — SD roughly halves. Each
-        pair below is the spread (SD) of an outcome across the 30 participants under each persona source.</p>
+      <p class="cap">A first turn of the RQ’s independent variable, run within silicon (same model, same bot, same 30
+        people; only the persona conditioning changes). Stripping the Big-Five/RIASEC profile leaves the <b>means
+        statistically unchanged</b> (paired-t p = 0.08–0.74) but <b>significantly collapses the between-person
+        variance</b> on 3 of 4 outcomes — SD roughly halves. Each pair is the spread (SD) of an outcome across the 30
+        participants under each persona source.</p>
       <div id="sdCollapse"></div>
-      <p class="cap" style="margin:18px 0 0">This is the literature’s warning made measurable: <b>LLMs reproduce means
-        but flatten variance</b> — and here, the less you tell the persona, the flatter it gets. The rich profile’s
-        main job is to keep people <i>different from each other</i>.</p>
+      <p class="cap" style="margin:18px 0 0">Two things this establishes for the RQ: <b>(1)</b> a design choice
+        measurably changes the simulated outcome — so the IV is real and consequential; and <b>(2)</b> the change shows
+        up as <b>variance</b> — the &ldquo;LLMs reproduce means but flatten variance&rdquo; effect, and the dimension
+        most likely to diverge from real people. That makes variance the comparison to watch once human data lands.</p>
     </div>
   </section>
 
@@ -228,23 +268,25 @@
     <div class="card"><div class="chat" id="chat"></div></div>
   </section>
 
-  <!-- WHY IT MATTERS -->
+  <!-- THE ONE MISSING PIECE -->
   <section class="wrap">
-    <div class="kicker">Why it matters</div>
-    <h2>What this buys the thesis.</h2>
+    <div class="kicker">What’s next</div>
+    <h2>One missing piece: the <em>human benchmark</em>.</h2>
+    <p class="sub">Everything for the RQ is in place. To answer it, the simulated outcomes need real participant
+      outcomes to be compared against — then the four fidelity levels above can be computed.</p>
     <div class="matters">
-      <div class="matter"><span class="ic">↗</span><h4>A measurable result, before any humans</h4>
-        <p>Means are robust to persona construction; variance is not. That’s a concrete, statistically-tested finding
-          (Levene p ≤ 0.05 on 3/4 outcomes) about how to build silicon participants.</p></div>
-      <div class="matter"><span class="ic">🔬</span><h4>It previews the core question</h4>
-        <p>If less conditioning flattens variance within silicon, the obvious risk is that <i>all</i> silicon
-          participants under-spread relative to humans — exactly the fidelity gap the thesis sets out to measure.</p></div>
-      <div class="matter"><span class="ic">⚙</span><h4>The apparatus works end-to-end</h4>
-        <p>Real profiles → lived study → paired statistical comparison runs at N=30, in parallel, in minutes. The
-          machinery is ready for the human benchmark the moment it arrives.</p></div>
-      <div class="matter"><span class="ic">⚖</span><h4>Honest by construction</h4>
-        <p>One factor changed at a time, model held fixed, every claim framed as a pilot with CIs and a variance test.
-          The method shows its own seams.</p></div>
+      <div class="matter"><span class="ic">⚙</span><h4>Apparatus: ready</h4>
+        <p>Real profiles → lived study → paired statistical comparison runs at N=30, in parallel, in minutes — with CIs
+          and variance tests built in.</p></div>
+      <div class="matter"><span class="ic">📊</span><h4>The IV: already bites</h4>
+        <p>A design choice (persona richness) measurably moves the outcome — so studying how design affects fidelity is
+          a live question, not a hypothetical.</p></div>
+      <div class="matter"><span class="ic">🧪</span><h4>Need: human responses</h4>
+        <p>Per-participant human outcomes (continuity / vividness / closeness, pre→post) — from the team’s studies or
+          our own collection through the deployed bot.</p></div>
+      <div class="matter"><span class="ic">🎯</span><h4>Then: the answer</h4>
+        <p>Compute means, the condition effect, variance/shape, and trait→outcome structure — silicon vs. human — and
+          the RQ is answered.</p></div>
     </div>
     <div style="margin-top:18px" class="honest">
       <h4>Read this the right way</h4>
