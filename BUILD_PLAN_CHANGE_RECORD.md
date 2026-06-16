@@ -3,8 +3,10 @@
 Companion to **Artifact Build Plan v5.1** (June 10, 2026). Evergreen: every change to
 the artifact since v5.1 is recorded here, organized by Build Plan section, until it
 is folded into a Build Plan v5.2. Newest entries carry the latest date. Maintainer:
-Claude Code on behalf of Kangzhi Qin. Repo `Lumingze13/BachelorThesis`, deploy branch
-`Kaehl` (Railway auto-deploys on push).
+Claude Code on behalf of Kangzhi Qin. **Canonical location as of 2026-06-16: repo
+`14861550/thesis`, branch `main`** — the team's single working branch (Railway
+auto-deploys on push). Earlier rounds were authored on the fork
+`Lumingze13/BachelorThesis` branch `Kaehl` and merged into `main` on 2026-06-15.
 
 Status legend: **[DEPLOYED]** live on Railway and verified · **[USER-ORDERED]** an
 explicit instruction from Kangzhi that supersedes the v5.1 as-built text.
@@ -346,3 +348,64 @@ explicit instruction from Kangzhi that supersedes the v5.1 as-built text.
   casual turns) after batch 3.
 - Resume probe live: `priorTranscript` seeding returns `resumed: true` plus a short
   in-character welcome-back; admin Resume links hydrate and land correctly.
+
+## Round 9 (2026-06-16) — landed on `main` by Gleb (`SkullCandby`); not authored on Kaehl
+
+These entries record changes a teammate (Gleb Meshkov, `SkullCandby`,
+gdmeshkov@gmail.com) pushed directly to the team repo `14861550/thesis` branch `main`
+on 2026-06-16, on top of the Kaehl→main merge of 2026-06-15. They are **not on the
+`Kaehl` branch**. From this date the team's single working branch is `main`; this
+record is maintained there. Status legend for this round: **[ON MAIN]** present on the
+team `main` branch · **[FLAG]** needs Kangzhi/team (and where noted supervisor/ethics)
+confirmation.
+
+- **§10 Survey — closeness measure changed** [ON MAIN] [FLAG]: the 2-item pictorial
+  FSCS-2 continuity pair (similar / connected) was DROPPED; closeness is now the
+  single IOS item alone, pre & post. Removed across `survey.jsx`, results aggregation
+  (`lib/results_routes.js`), the silicon-cohort validity check (`lib/silicon_cohort.js`
+  now keys on `ios_post`), and the silicon self-report. In-code rationale: Shuai's
+  14 Jun feedback — FSCS read as redundant with IOS. Pre-survey page count changed and
+  the comfort/survey storage key was bumped to `v2` (stale saved page indices reset).
+  **This contradicts the "instruments unchanged" line (Brief record §3) and alters one
+  of Kangzhi's three mediators — confirm the supervisor decision and update Brief §2.5
+  / Appendix F before fielding.** (commit `635dd77`)
+- **§7 / §10 New "Picture that future you" imagination page** [ON MAIN]: a standalone
+  page with a 20-second hold gate (`PagedSurvey holdSeconds`) now precedes each IOS
+  closeness question, pre & post — a brief structured-imagination prompt before the
+  measure; the Continue button unlocks only after the hold. (commits `635dd77`,
+  `c24802e`)
+- **§8 Stage-C reply-length rule rewritten (both arms)** [ON MAIN]: from the Round-5
+  fixed "aim for 2-3 short paragraphs (80-180 words)" to "LET IT VARY — the question
+  sets the size: a light question gets a sentence or two, a real one up to 2-3 short
+  paragraphs; vary how you open; match the user's length and energy; never a wall of
+  text." The per-call reminder is kept. Supersedes the Round-5 wording; still symmetric
+  across arms (not a condition confound). (commit `635dd77`)
+- **§7 Phase B career chooser redesigned** [ON MAIN]: the stranded top-right ghost
+  button is replaced with an in-flow affordance ("Choose a career →", reachable from
+  the start; a "Seen a direction you would want to live out?" cue once cards exist).
+  New `docs/phaseB_qa_rationale.md` documents why Phase B converses before recommending
+  (answering Shuai's 14 Jun question) — rationale only, no method change. (commit
+  `635dd77`)
+- **§7 Suggested "Ideas to ask" chips restructured into themes** [ON MAIN], sampled
+  across themes (the Round-6 fixed pool reorganized; still identical across arms).
+  (commit `635dd77`)
+- **§16 Copy + animation** [ON MAIN]: AI-sounding headings/intros reworded ("Your
+  future self, today/now" renamed, templated lines trimmed); the "Picture that future
+  you" page animates as a paced fade (each line fades in / holds / out, looping over
+  the 20-second hold; honours `prefers-reduced-motion`). (commits `635dd77`, `c24802e`)
+- **§NEW Optional "day in the life" POV video at the Phase B→C handoff** [ON MAIN]
+  [FLAG]: on career lock-in the app can generate three first-person POV clips
+  (morning / afternoon / evening, ten years on) from the career + location + Phase-B
+  conversation via Google Veo (Gemini API), played during the B→C pause; a
+  rotating-text montage is the fallback when no key is set or a clip is safety-filtered.
+  New `lib/video.js` (job store, scene prompts, parallel Veo generation, polling, /tmp
+  streaming, TTL cleanup), `lib/prompt.js buildDayInLifeScenePrompt`,
+  `server.js /api/day-in-life*`, `dayinlife.jsx`, `app.jsx` wiring at `pause_bc`.
+  **OFF by default** (needs `VIDEO_ENABLED` + `GEMINI_API_KEY`); fresh per participant;
+  ~3 Veo clips/participant (1-5 min each, real cost). `docs/day_in_life_video.md`.
+  **[FLAG: a new pre-chat stimulus between phases — Gleb's own doc notes this is a
+  protocol change that could confound the manipulation; keep OFF until the team and
+  ethics agree.]** (commits `5cb3b6c`, `5009ad0`, `29c6164`)
+- Infra [ON MAIN]: Veo `durationSeconds` coerced to Number (Gemini rejected the
+  string); `@google/genai` dependency added; `flow_test` stays green because the video
+  step is off by default. (commits `5009ad0`, `5cb3b6c`)

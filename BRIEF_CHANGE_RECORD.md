@@ -4,7 +4,10 @@ Companion to **Project Status Brief v4.1**. Evergreen: every design- or method-l
 change since v4.1 is recorded here until folded into a Brief v4.2. Implementation
 detail lives in the companion `BUILD_PLAN_CHANGE_RECORD.md`; this file records what
 matters for the STUDY — design, stimuli, measurement, ethics, analysis. Maintainer:
-Claude Code on behalf of Kangzhi Qin.
+Claude Code on behalf of Kangzhi Qin. **Canonical location as of 2026-06-16: repo
+`14861550/thesis`, branch `main`** (the team's single working branch; earlier rounds
+were authored on the fork `Lumingze13/BachelorThesis` branch `Kaehl` and merged into
+`main` on 2026-06-15).
 
 ---
 
@@ -240,3 +243,66 @@ every batch; a Playwright walkthrough screenshots the entire participant flow
 both conditions (strict rule: every reply 2 paragraphs, 89–163 words, none
 truncated; relaxed rule re-probed after deployment), time-anchored advice, and the
 resume welcome-back path.
+
+## 6. Changes landed on `main` by Gleb (2026-06-16) — not yet on Kaehl
+
+These are design-, stimulus- and measurement-level changes a teammate (Gleb Meshkov,
+`SkullCandby`, gdmeshkov@gmail.com) pushed to the team repo `14861550/thesis` branch
+`main` on 2026-06-16, after the Kaehl→main merge of 2026-06-15. They are not yet on the
+`Kaehl` branch. From this date the team works on `main`; this record is maintained
+there. Flagged where they bear on Kangzhi's design.
+
+### 6.1 Closeness measure changed — FSCS-2 dropped, single IOS item [FLAG]
+
+Closeness is now measured by the single IOS (Inclusion of Other in the Self) circles
+item, pre and post; the 2-item pictorial FSCS-2 continuity pair (similar / connected)
+was removed (in-code rationale: Shuai, 14 Jun, "redundant with the IOS item"). This
+directly amends §3's "what did NOT change" — which listed IOS + FSCS-2 as untouched —
+and one of Kangzhi's three mediators (closeness). It also propagates to Gleb's silicon
+self-report and the silicon-cohort validity check (now keyed on `ios_post`). **Confirm
+the supervisor decision and update Brief §2.5 (Outcomes / Mediators / Measures) and
+Appendix F before fielding.**
+
+### 6.2 New procedure element — future-self imagination gate
+
+A standalone "Picture that future you" page with a 20-second hold now precedes each
+closeness (IOS) measure, pre and post, in both arms — a brief structured imagination
+prompt immediately before the item. Note for the Method / Procedure section, and a
+possible measurement-reactivity consideration (an imagination prompt sits directly
+before the closeness rating).
+
+### 6.3 New optional stimulus — "day in the life" video [FLAG]
+
+An optional first-person POV video (or, with no video key, an auto-rotating text
+montage) of an ordinary weekday ten years on — generated from the chosen career,
+location and Phase-B conversation — can be shown at the Phase B→C handoff, after
+lock-in and before the role-play. **OFF by default.** This is a new pre-chat exposure
+inserted between phases; the implementing doc itself flags it as a protocol change that
+could confound the manipulation. Do not enable for the fielded study without team and
+ethics sign-off.
+
+### 6.4 Stage-C reply length now deliberately varied (both arms)
+
+The reply-length guidance changed from a fixed 2-3-paragraph target (§1.2) to
+deliberate variation — short answers for light / quick questions, up to 2-3 short
+paragraphs for weightier ones, with varied openings. Applied symmetrically, so not a
+condition confound, but it supersedes the v4.2 length wording.
+
+### 6.5 Phase B rationale documented; chooser redesigned
+
+A short note answers Shuai's 14 Jun question — why Phase B asks a few open questions
+before recommending careers rather than computing them straight from the questionnaire
+(the questionnaire is descriptive, not prescriptive; the conversation captures current
+wants, surfaces options the student doesn't know exist, grounds geography, and builds
+continuity into Phase C). Design rationale only — no method change. The Phase-B career
+chooser UI was also redesigned (an in-flow affordance replacing a stranded ghost
+button).
+
+### 6.6 Participant copy
+
+AI-sounding headings / intros reworded; the suggested-question ("Ideas to ask") chips
+reorganized by theme and sampled across themes (still a fixed pool, identical across
+arms — §1.3 unchanged in substance).
+
+*Provenance: all by Gleb Meshkov (`SkullCandby`, gdmeshkov@gmail.com), 2026-06-16,
+commits `635dd77`, `5cb3b6c`, `5009ad0`, `29c6164`, `c24802e`.*
