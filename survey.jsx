@@ -227,6 +227,27 @@ function IOSField({ id, value, onChange, career }) {
   );
 }
 
+/* The imagination prompt, paced: each line gracefully fades in, holds, fades out,
+ * and the next takes its place (looping). Gives the participant a calmer moment to
+ * picture each part of the day rather than facing a wall of text. */
+function ImagineSequence({ lines, closing }) {
+  const { useState, useEffect } = React;
+  const [idx, setIdx] = useState(0);
+  useEffect(() => {
+    if (!lines || lines.length < 2) return undefined;
+    const t = setInterval(() => setIdx((i) => (i + 1) % lines.length), 6500);
+    return () => clearInterval(t);
+  }, [lines ? lines.length : 0]);
+  return (
+    <div className="sv-imagine">
+      <div className="sv-imagine-seq">
+        <p key={idx} className="sv-imagine-line">{(lines && lines[idx]) || ''}</p>
+      </div>
+      {closing && <p className="sv-imagine-close">{closing}</p>}
+    </div>
+  );
+}
+
 function ChoiceField({ id, options, value, onChange }) {
   return (
     <div className="sv-choices">
@@ -363,12 +384,13 @@ function buildPreSections(answers, onChange) {
       ids: [],
       holdSeconds: 20,
       node: (
-        <div className="sv-imagine">
-          <p>It is an ordinary weekday about ten years from now. Picture waking up — where are you? Whose voice, if anyone's, do you hear first? Notice the room, the light coming in, what is already on your mind before the day has properly started.</p>
-          <p>Now you are at work, whatever that work has turned out to be. What is in front of you this morning? Who is around — people you work with, people you are helping, someone you are still learning from? Sit for a second with what it feels like to be genuinely good at something you spent years growing into.</p>
-          <p>It is evening now. The day is behind you. Where are you, who are you with, and how do you feel as it winds down?</p>
-          <p className="sv-imagine-close">Stay with that person for a moment. They are who the next question is about.</p>
-        </div>
+        <ImagineSequence
+          lines={[
+            "It is an ordinary weekday about ten years from now. Picture waking up — where are you? Whose voice, if anyone's, do you hear first? Notice the room, the light coming in, what is already on your mind before the day has properly started.",
+            "Now you are at work, whatever that work has turned out to be. What is in front of you this morning? Who is around — people you work with, people you are helping, someone you are still learning from? Sit for a second with what it feels like to be genuinely good at something you spent years growing into.",
+            "It is evening now. The day is behind you. Where are you, who are you with, and how do you feel as it winds down?",
+          ]}
+          closing="Stay with that person for a moment. They are who the next question is about." />
       ),
     },
     {

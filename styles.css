@@ -453,6 +453,11 @@ textarea.text-input { resize: vertical; min-height: 96px; line-height: 1.55; }
 .sv-imagine { max-width: 58ch; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
 .sv-imagine p { font-size: 17px; line-height: 1.75; color: var(--ink-2); margin: 0; text-wrap: pretty; }
 .sv-imagine .sv-imagine-close { color: var(--muted); font-style: italic; }
+/* Paced imagination: each line fades in, holds, fades out, then the next. */
+.sv-imagine-seq { min-height: 9.5em; display: flex; align-items: center; justify-content: center; }
+.sv-imagine-line { animation: sv-imagine-fade 6.5s ease both; }
+@keyframes sv-imagine-fade { 0%, 100% { opacity: 0; } 12%, 85% { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .sv-imagine-line { animation: none; } }
 .sv-field { display: block; margin-bottom: 24px; }
 .sv-label { display: block; font-size: 15.5px; color: var(--ink); margin-bottom: 10px; line-height: 1.5; }
 .sv-input, .sv-textarea {
