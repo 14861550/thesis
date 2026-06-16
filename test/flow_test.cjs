@@ -25,6 +25,7 @@ window.ReactDOM = require('react-dom'); // react-dom 18 exposes createRoot nativ
 // --- stubs ---
 window.matchMedia = window.matchMedia || (() => ({ matches: false, addListener() {}, removeListener() {}, addEventListener() {}, removeEventListener() {} }));
 window.scrollTo = () => {};
+window.THESIS_TEST_NO_HOLD = true; // skip the imagination page's timed hold gate
 window.URL.createObjectURL = () => 'blob:stub';
 window.URL.revokeObjectURL = () => {};
 let fetchCalls = [];

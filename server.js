@@ -62,10 +62,11 @@ const sessions = new Map();
 // Phase-C only: re-asserted on EVERY call because as a conversation grows, a
 // length rule stated once at the top of a long system prompt loses out to the
 // model's instinct to paint full scenes (live-tested on gpt-5.1: a casual
-// question still drew 300+ words). Identical across main/baseline; Phase B
-// (incl. Andrea's prompts) is never touched.
+// question still drew 300+ words). Now it also pushes for VARIATION — the
+// supervisor (14 Jun 2026) found replies almost always the same length. Identical
+// across main/baseline; Phase B (incl. Andrea's prompts) is never touched.
 const BREVITY_REMINDER =
-  'Keep this reply comfortable to read: about 2-3 short paragraphs (roughly 80-180 words), never a wall of text. At most one question, only if it follows naturally from the conversation, and bridged into with a connecting sentence — never dropped in cold.';
+  'Keep this reply comfortable to read, and vary it from your last few. Let the weight of what they just said set the length: a light question gets a short answer (sometimes a line or two), a real one can run to 2-3 short paragraphs — never a wall of text, and never the same length every time. At most one question, only if it follows naturally from the conversation and is bridged into with a connecting sentence — never dropped in cold.';
 
 /** Call the configured model with a system prompt + history; return assistant text. */
 async function complete(systemPrompt, messages, { remind = false } = {}) {

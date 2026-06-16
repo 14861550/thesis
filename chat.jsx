@@ -5,27 +5,49 @@ const { useState, useEffect, useRef, useMemo } = React;
  * tired participant always has somewhere to go next — including angles they might
  * not think to ask about. Deliberately a FIXED, neutral pool (identical across
  * conditions) rather than model-generated, so the nudges can't differ between
- * main and baseline. Free typing always stays available. */
-const ASK_POOL = [
-  'What does an ordinary Tuesday actually look like for you?',
-  "What's the hardest part nobody warned you about?",
-  'How did you get from where I am now to where you are?',
-  'Did you ever doubt this path?',
-  "How's the money — honestly?",
-  'What do your evenings and weekends look like?',
-  'What surprised you most about this work?',
-  'What skill should I start building now?',
-  'What was your first job after graduating?',
-  'What almost made you quit?',
-  'What would you do differently?',
-  'Who are the people around you these days?',
-  'Where are you living, and do you like it?',
-  'What does stress look like for you now?',
-  "What's a recent moment that made it feel worth it?",
-  'Is there a path you almost took instead?',
-  'What do you miss about being my age?',
-  'How do I know if this career is right for me?',
+ * main and baseline. Free typing always stays available.
+ *
+ * Organised into themes (supervisor feedback, 14 Jun 2026: make the prompts more
+ * structured and cover the most important things to learn from a future self).
+ * The four chips shown each turn are drawn across DIFFERENT themes (pickAskIdeas)
+ * so they span daily life, the path there, the honest tradeoffs, doubts, what to
+ * do now, and people/meaning — rather than clustering on one angle. */
+const ASK_THEMES = [
+  ['A day in the life', [
+    'What does an ordinary Tuesday actually look like for you?',
+    'What do your evenings and weekends look like?',
+    'What does stress look like for you now?',
+  ]],
+  ['How you got here', [
+    'How did you get from where I am now to where you are?',
+    'What was your first job after graduating?',
+    'Is there a path you almost took instead?',
+  ]],
+  ['The honest tradeoffs', [
+    "How's the money — honestly?",
+    "What's the hardest part nobody warned you about?",
+    'What almost made you quit?',
+  ]],
+  ['Doubts & turning points', [
+    'Did you ever doubt this path?',
+    'What would you do differently?',
+    'What surprised you most about this work?',
+  ]],
+  ['What I should do now', [
+    'What skill should I start building now?',
+    'How do I know if this career is right for me?',
+    'What do you miss about being my age?',
+  ]],
+  ['People & what makes it worth it', [
+    'Who are the people around you these days?',
+    'Where are you living, and do you like it?',
+    "What's a recent moment that made it feel worth it?",
+  ]],
 ];
+// Flatten to an index-addressable pool (chips render by index) plus a parallel
+// theme tag per index, so picking can spread across themes.
+const ASK_POOL = ASK_THEMES.flatMap(([, qs]) => qs);
+const ASK_THEME = ASK_THEMES.flatMap(([theme, qs]) => qs.map(() => theme));
 
 /* True when an idea substantially overlaps something the user already asked —
  * suggesting "What does an ordinary Tuesday look like?" right after they typed
@@ -39,15 +61,30 @@ function askedAlready(idea, userTexts) {
   });
 }
 
-/* Pick `n` not-yet-used questions; recycle the pool once it runs dry. */
+/* Pick `n` not-yet-used questions, spread across DIFFERENT themes for coverage;
+ * recycle the pool once it runs dry. */
 function pickAskIdeas(used, n = 4, userTexts = []) {
   let avail = ASK_POOL.map((_, i) => i).filter((i) => !used.has(i));
   if (avail.length < n) { used.clear(); avail = ASK_POOL.map((_, i) => i); }
   const fresh = avail.filter((i) => !askedAlready(ASK_POOL[i], userTexts));
   if (fresh.length >= n) avail = fresh;
+  // Bucket the available indices by theme, shuffle within and across buckets,
+  // then round-robin so the chips span as many themes as possible.
+  const byTheme = new Map();
+  for (const i of avail) {
+    const t = ASK_THEME[i];
+    if (!byTheme.has(t)) byTheme.set(t, []);
+    byTheme.get(t).push(i);
+  }
+  const buckets = [...byTheme.values()];
+  for (const b of buckets) b.sort(() => Math.random() - 0.5);
+  buckets.sort(() => Math.random() - 0.5);
   const picks = [];
-  while (picks.length < n && avail.length) {
-    picks.push(avail.splice(Math.floor(Math.random() * avail.length), 1)[0]);
+  let bi = 0;
+  while (picks.length < n && buckets.some((b) => b.length)) {
+    const b = buckets[bi % buckets.length];
+    if (b.length) picks.push(b.pop());
+    bi++;
   }
   return picks;
 }
@@ -523,7 +560,7 @@ function Chat({ profile, condition = 'main', profileData = {}, phaseBNotes = '',
             </button>
           </div>
           <div className="composer-foot">
-            Ask anything — your future self is here to think it through with you.
+            Ask whatever you actually want to know — big or small.
             {saveState && <span className="save-note">{saveState === 'saving' ? ' · Saving…' : ' · Progress saved ✓'}</span>}
           </div>
         </div>

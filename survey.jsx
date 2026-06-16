@@ -3,11 +3,12 @@
  * small data-driven renderer. Pre-survey = Phase A; post-survey runs after Phase C.
  *
  * Instruments: BFI-10 (Rammstedt & John, 2007), Schwartz-aligned work values,
- * RIASEC 6-item interest screen, IOS (closeness), a 3-item future-self-continuity
- * scale (adapted FSCS), and a 4-item future-self vividness scale. Pre/post use the
- * SAME closeness/continuity/vividness items for comparability. The future-self
- * referent is kept generic ("about 10 years from now") because the career is chosen
- * later, in Phase B.
+ * RIASEC 6-item interest screen, a single IOS closeness item, and a 4-item
+ * future-self vividness scale. Pre/post use the SAME closeness/vividness items for
+ * comparability. (The earlier two-item FSCS continuity pair was dropped on
+ * supervisor feedback — 14 Jun 2026 — as it read as redundant with the IOS item;
+ * closeness is now the IOS measure alone.) The future-self referent is kept generic
+ * ("about 10 years from now") because the career is chosen later, in Phase B.
  *
  * All components destructure React hooks inside function scope (the no-build setup
  * runs each .jsx as a separate script; top-level declarations are shared, so we
@@ -66,14 +67,9 @@ const RIASEC = [
 ];
 const RIASEC_SCALE = { points: 7, left: 'Not interested', right: 'Extremely interested' };
 
-// Future-self measures (same items pre and post).
-// FSCS = the 2-item pictorial pair (Ersner-Hershfield et al., 2009): similarity +
-// connectedness, answered on the same seven-pairs overlapping-circles format as
-// the IOS (Build Plan §10.1e). Continuity score = mean of the two.
-const FSCS = [
-  { id: 'fscs_similar', text: 'How SIMILAR do you feel to your future self, 10 years from now?', hint: 'Similar = how alike you and that future person are — personality, values, what matters to you.' },
-  { id: 'fscs_connected', text: 'How CONNECTED do you feel to your future self?', hint: "Connected = how much that future person feels like 'you', one continuous person rather than a stranger." },
-];
+// Future-self measures (same items pre and post). Closeness is the single IOS
+// circles item (below); the former two-item FSCS continuity pair was removed on
+// supervisor feedback (14 Jun 2026) as redundant with it.
 const VIVIDNESS = [
   { id: 'viv_clear', text: 'I can picture my future self clearly.' },
   { id: 'viv_tangible', text: 'My future self feels tangible and real to me, not abstract.' },
@@ -179,9 +175,9 @@ function LikertGrid({ items, scale, prefix, answers, onChange }) {
   );
 }
 
-/* Seven pairs of overlapping (Euler) circles — the shared response format for
- * the IOS item and the two FSCS items (Build Plan §10.1d/e). Left circle =
- * "You now", right = "You in 10 years"; overlap grows monotonically 1→7. */
+/* Seven pairs of overlapping (Euler) circles — the response format for the IOS
+ * closeness item (Build Plan §10.1d). Left circle = "You now", right = "You in
+ * 10 years"; overlap grows monotonically 1→7. */
 function CirclesField({ id, text, hint, value, onChange }) {
   const opts = Array.from({ length: 7 }, (_, i) => i + 1);
   return (
@@ -359,16 +355,29 @@ function buildPreSections(answers, onChange) {
       node: <LikertGrid items={RIASEC} scale={RIASEC_SCALE} answers={answers} onChange={set} />,
     },
     {
-      title: 'Your future self, today',
-      intro: "The next questions are about your future self — the person you will be about 10 years from now. These questions capture how you picture that person today; you'll answer the same ones again after the conversation, so we can see what shifts.",
-      ids: ['ios_pre', ...FSCS.map((i) => i.id)],
+      // Standalone imagination page (supervisor feedback, 14 Jun 2026): give
+      // people a moment to actually conjure the future self before we ask how
+      // close it feels. No inputs; the Continue button holds for 20 seconds.
+      title: 'Picture that future you',
+      intro: 'Take a moment for this one — there is nothing to answer here, just a minute to imagine.',
+      ids: [],
+      holdSeconds: 20,
+      node: (
+        <div className="sv-imagine">
+          <p>It is an ordinary weekday about ten years from now. Picture waking up — where are you? Whose voice, if anyone's, do you hear first? Notice the room, the light coming in, what is already on your mind before the day has properly started.</p>
+          <p>Now you are at work, whatever that work has turned out to be. What is in front of you this morning? Who is around — people you work with, people you are helping, someone you are still learning from? Sit for a second with what it feels like to be genuinely good at something you spent years growing into.</p>
+          <p>It is evening now. The day is behind you. Where are you, who are you with, and how do you feel as it winds down?</p>
+          <p className="sv-imagine-close">Stay with that person for a moment. They are who the next question is about.</p>
+        </div>
+      ),
+    },
+    {
+      title: 'How close is your future self?',
+      intro: "Now that you have pictured that person — how close do they feel to who you are today? You will answer this again after the conversation, so we can see what shifts.",
+      ids: ['ios_pre'],
       node: (
         <div className="sv-section">
           <IOSField id="ios_pre" value={answers.ios_pre} onChange={set} />
-          {FSCS.map((it) => (
-            <CirclesField key={it.id} id={it.id} text={it.text} hint={it.hint}
-              value={answers[it.id]} onChange={set} />
-          ))}
         </div>
       ),
     },
@@ -403,20 +412,15 @@ function buildPreSections(answers, onChange) {
 function buildPostSections(answers, onChange, career, study = 'kangzhi') {
   const set = (id, v) => onChange(id, v);
   // Post future-self items reuse the SAME ids as pre but with a "_post" suffix.
-  const fscsPost = FSCS.map((i) => ({ ...i, id: i.id + '_post' }));
   const vivPost = VIVIDNESS.map((i) => ({ ...i, id: i.id + '_post' }));
   return [
     {
-      title: 'Your future self, now',
-      intro: 'Now — after the conversation — how do you picture your future self (about 10 years from now)?',
-      ids: ['ios_post', ...fscsPost.map((i) => i.id)],
+      title: 'And now — how close is your future self?',
+      intro: 'After the conversation, how close does that future you (about 10 years from now) feel to who you are today?',
+      ids: ['ios_post'],
       node: (
         <div className="sv-section">
           <IOSField id="ios_post" value={answers.ios_post} onChange={set} career={career} />
-          {fscsPost.map((it) => (
-            <CirclesField key={it.id} id={it.id} text={it.text} hint={it.hint}
-              value={answers[it.id]} onChange={set} />
-          ))}
         </div>
       ),
     },
@@ -510,7 +514,9 @@ function buildPostSections(answers, onChange, career, study = 'kangzhi') {
 
 // --- Paged survey container ------------------------------------------------
 
-const SVPAGE_KEY = 'thesis_svpage_v1';
+// v2: bumped when the pre-survey page count changed (imagination page added,
+// FSCS items removed — 14 Jun 2026 feedback) so stale saved indices reset.
+const SVPAGE_KEY = 'thesis_svpage_v2';
 const readSvPage = (k) => {
   try { return Number(JSON.parse(localStorage.getItem(SVPAGE_KEY) || '{}')[k]) || 0; } catch (e) { return 0; }
 };
@@ -523,7 +529,7 @@ const writeSvPage = (k, n) => {
 };
 
 function PagedSurvey({ sections, answers, onChange, onDone, onBack, eyebrow, storageKey }) {
-  const { useState } = React;
+  const { useState, useEffect } = React;
   const isPreview = typeof window !== 'undefined' && window.THESIS_PREVIEW;
   // Remember the page index across refreshes (§13a) — answers were already
   // restored, but landing back on page 1 of 9 read as "starting over".
@@ -533,8 +539,27 @@ function PagedSurvey({ sections, answers, onChange, onDone, onBack, eyebrow, sto
   });
   const setPage = (n) => { setPageRaw(n); if (storageKey && !isPreview) writeSvPage(storageKey, n); };
   const s = sections[Math.min(page, sections.length - 1)];
+
+  // Optional timed "hold" gate (supervisor feedback, 14 Jun 2026): a page can
+  // ask the participant to sit with a prompt for a few seconds before the
+  // Continue button unlocks — used for the future-self imagination page.
+  // Skipped in researcher preview and in the headless flow test (no real wait).
+  const holdFor = (sec) => {
+    if (isPreview) return 0;
+    if (typeof window !== 'undefined' && window.THESIS_TEST_NO_HOLD) return 0;
+    return sec || 0;
+  };
+  const [remaining, setRemaining] = useState(() => holdFor(s.holdSeconds));
+  useEffect(() => { setRemaining(holdFor(s.holdSeconds)); }, [page]);
+  useEffect(() => {
+    if (remaining <= 0) return undefined;
+    const t = setTimeout(() => setRemaining((r) => r - 1), 1000);
+    return () => clearTimeout(t);
+  }, [remaining]);
+  const heldEnough = remaining <= 0;
+
   // Preview mode (researcher test drive): every page may be skipped unfilled.
-  const complete = isPreview || sectionComplete(s.ids, answers);
+  const complete = (isPreview || sectionComplete(s.ids, answers)) && heldEnough;
   const isLast = page === sections.length - 1;
 
   const next = () => {
@@ -574,7 +599,7 @@ function PagedSurvey({ sections, answers, onChange, onDone, onBack, eyebrow, sto
         ) : <span />}
         <span className="step-label">{page + 1} OF {sections.length}</span>
         <button className="btn accent" disabled={!complete} onClick={next}>
-          {isLast ? 'Done' : 'Continue'}
+          {!heldEnough ? `Take a moment… ${remaining}s` : (isLast ? 'Done' : 'Continue')}
           <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M3 6.5h7M6.5 3l4 3.5-4 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
         </button>
       </div>

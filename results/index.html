@@ -152,7 +152,7 @@ const short = (id) => (id || '').slice(0, 8);
 const fmt = (t) => t ? new Date(t).toLocaleString() : '—';
 const num = (x, dp = 2) => (x === null || x === undefined || Number.isNaN(x)) ? 'n/a' : Number(x).toFixed(dp);
 const Pill = ({ s }) => <span className={'pill s-' + s}>{s}</span>;
-const OUTC = [['continuity', 'Continuity'], ['vividness', 'Vividness'], ['closeness', 'Closeness'], ['manip_checks', 'Manip. checks']];
+const OUTC = [['vividness', 'Vividness'], ['closeness', 'Closeness'], ['manip_checks', 'Manip. checks']];
 
 function Delta({ v }) {
   if (v === null || v === undefined) return <span className="muted">—</span>;
@@ -176,7 +176,6 @@ function Overview() {
       <div className="cards">
         <div className="metric"><div className="label">Completed sessions</div><div className="big">{d.n_completed}</div>
           <div className="small">{conds.map(([k, v]) => k + ': ' + v).join(' · ') || '—'}</div></div>
-        <div className="metric"><div className="label">Mean Δ continuity</div><div className="big"><Delta v={d.mean_delta.continuity} /></div><div className="small">pre → post (1–7)</div></div>
         <div className="metric"><div className="label">Mean Δ vividness</div><div className="big"><Delta v={d.mean_delta.vividness} /></div><div className="small">pre → post (1–7)</div></div>
         <div className="metric"><div className="label">Mean Δ closeness</div><div className="big"><Delta v={d.mean_delta.closeness} /></div><div className="small">IOS (1–7)</div></div>
       </div>
@@ -250,7 +249,7 @@ function RunsView() {
   useEffect(() => { api('/api/results/runs').then(setRows).catch((e) => setErr(e.message)); }, []);
   const headline = (s) => {
     if (!s || !s.headline) return '—';
-    const h = s.headline.find((x) => x.outcome === 'continuity') || s.headline[0];
+    const h = s.headline.find((x) => x.outcome === 'closeness') || s.headline[0];
     return h ? `${h.outcome} MAE=${num(h.mae)}` : '—';
   };
   if (err) return <div className="note">{err}</div>;
@@ -387,7 +386,7 @@ function SessionDetail({ label, onClose }) {
             <table>
               <thead><tr><th>Outcome</th><th className="num">Pre</th><th className="num">Post</th><th className="num">Δ</th></tr></thead>
               <tbody>
-                {[['continuity', 'Continuity'], ['vividness', 'Vividness'], ['closeness', 'Closeness']].map(([k, lbl]) => (
+                {[['vividness', 'Vividness'], ['closeness', 'Closeness']].map(([k, lbl]) => (
                   <tr key={k}><td>{lbl}</td><td className="num">{num(o.pre[k])}</td><td className="num">{num(o.post[k])}</td><td className="num"><Delta v={o.delta[k]} /></td></tr>
                 ))}
                 <tr><td>Manip. checks</td><td className="num">—</td><td className="num">{num(o.post.manip_checks)}</td><td className="num">—</td></tr>

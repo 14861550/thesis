@@ -449,6 +449,10 @@ textarea.text-input { resize: vertical; min-height: 96px; line-height: 1.55; }
 .sv-wrap { max-width: 640px; margin: 0 auto; padding: 8px 4px 24px; width: 100%; }
 .sv-intro { color: var(--muted); font-size: 14.5px; line-height: 1.6; margin: 6px 0 22px; }
 .sv-section { display: flex; flex-direction: column; gap: 26px; }
+/* Future-self imagination page — quiet, readable prose, no inputs. */
+.sv-imagine { max-width: 58ch; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+.sv-imagine p { font-size: 17px; line-height: 1.75; color: var(--ink-2); margin: 0; text-wrap: pretty; }
+.sv-imagine .sv-imagine-close { color: var(--muted); font-style: italic; }
 .sv-field { display: block; margin-bottom: 24px; }
 .sv-label { display: block; font-size: 15.5px; color: var(--ink); margin-bottom: 10px; line-height: 1.5; }
 .sv-input, .sv-textarea {
@@ -520,6 +524,14 @@ textarea.text-input { resize: vertical; min-height: 96px; line-height: 1.55; }
 /* Phase B */
 .pb-wrap { max-width: 720px; margin: 0 auto; width: 100%; display: flex; flex-direction: column; }
 .pb-scroll { flex: 1; }
+/* In-flow career chooser prompt (replaces the old top-right ghost button). A
+   quiet centred link before directions exist; a calm card once they do. */
+.pb-choose-bar { display: flex; align-items: center; justify-content: center; gap: 12px; flex-wrap: wrap; margin-top: 16px; text-align: center; }
+.pb-choose-bar.ready {
+  margin-top: 20px; padding: 14px 18px; border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg); background: var(--surface-2);
+}
+.pb-choose-cue { font-size: 14px; color: var(--ink-2); }
 .pb-lock {
   margin-top: 22px; padding: 18px; border: 1px solid var(--accent);
   border-radius: var(--radius-lg); background: var(--surface-2);

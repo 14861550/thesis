@@ -123,6 +123,16 @@ function PhaseB({ profileData, rec = 'reflective', seedTranscript = [], onDone, 
   // Selecting a recommendation card fills the lock-in choice.
   const chooseRec = (title) => { setCareer(title); setCareerNote(null); setShowLock(true); };
 
+  // Open the lock-in panel (from the in-flow prompt or a card). Reachable from
+  // the start. Scrolling happens in the effect below, once the panel mounts —
+  // redesigned from the old stranded top-right ghost button (14 Jun 2026 feedback).
+  const openChooser = () => setShowLock(true);
+  useEffect(() => {
+    if (showLock && lockRef.current && lockRef.current.scrollIntoView) {
+      lockRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }, [showLock]);
+
   const [checking, setChecking] = useState(false);
   const [careerNote, setCareerNote] = useState(null);
   const isPreview = typeof window !== 'undefined' && window.THESIS_PREVIEW;
@@ -166,11 +176,6 @@ function PhaseB({ profileData, rec = 'reflective', seedTranscript = [], onDone, 
         <div className="brand"><BrandMark size={22} /><span>Thesis</span></div>
         <div className="sv-eyebrow">Step 03 · Find a direction</div>
         <div className="end" style={{ display: 'flex', gap: 8 }}>
-          {/* Always reachable from the start — never gated (§16a). */}
-          <button className="btn ghost sm" onClick={() => {
-            setShowLock(true);
-            if (lockRef.current && lockRef.current.scrollIntoView) lockRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-          }}>Choose your career →</button>
           <button className="btn ghost sm" onClick={onBack}>Back</button>
         </div>
       </nav>
@@ -211,13 +216,21 @@ function PhaseB({ profileData, rec = 'reflective', seedTranscript = [], onDone, 
             </div>
           </div>
 
-          {/* Fallback: if the guide has talked a while but no cards parsed, let the
-              student open the chooser themselves rather than be stuck. */}
-          {!showLock && !pending && guideTurns >= 3 && !hasRecs && (
-            <div style={{ textAlign: 'center', marginTop: 14 }}>
-              <button className="link-btn" style={{ margin: 0 }} onClick={() => setShowLock(true)}>
-                I'm ready to choose my career →
-              </button>
+          {/* In-flow career chooser (redesigned 14 Jun 2026, replacing the
+              stranded top-right ghost button). Reachable from the start: a quiet
+              prompt early on, then a clear call once directions have been proposed. */}
+          {!showLock && !pending && (
+            <div className={`pb-choose-bar ${hasRecs ? 'ready' : ''}`}>
+              {hasRecs ? (
+                <>
+                  <span className="pb-choose-cue">Seen a direction you would want to live out?</span>
+                  <button className="btn accent sm" onClick={openChooser}>Choose a career →</button>
+                </>
+              ) : (
+                <button className="link-btn" style={{ margin: 0 }} onClick={openChooser}>
+                  When you are ready, choose a career to step into →
+                </button>
+              )}
             </div>
           )}
 
@@ -257,7 +270,7 @@ function PhaseB({ profileData, rec = 'reflective', seedTranscript = [], onDone, 
         {error && <div className="composer-error">{error}</div>}
         {restDue && (
           <div className="time-note soft">
-            You've been exploring for a while — feel free to take a short breather, or keep going.
+            You've been exploring for a while — take a short breather if you like, or keep going.
             <button className="link-btn" onClick={() => setNextRest((n) => n + PB_REST_MIN)}>Keep going</button>
           </div>
         )}
