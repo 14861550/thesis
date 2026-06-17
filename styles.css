@@ -820,3 +820,17 @@ body:has(.pb-lock-overlay) .comfort-fab { display: none; }
   .sv-wrap { max-width: 700px; }
   .chat-thread, .msg .bubble { max-width: 760px; }
 }
+
+/* ====================================================================
+   Refined, theme-aware scrollbars. The default chunky light-grey bars
+   undercut the dark UI on Windows/Linux/Chrome; these read as a quiet
+   part of the design and adapt to light/dark via the theme tokens.
+   ==================================================================== */
+* { scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
+::-webkit-scrollbar { width: 11px; height: 11px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong); border-radius: 999px;
+  border: 3px solid transparent; background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover { background: var(--muted); background-clip: padding-box; }
