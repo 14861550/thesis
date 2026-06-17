@@ -105,22 +105,19 @@ const OPEN_ENDED = [
 ];
 
 // Distal outcome — Career indecision: CIP-Short "Lack of Readiness" (LR) subscale
-// (Xu & Tracey, 2017b; validation Xu, 2020). 5 items, ALL reverse-scored, original
-// 6-point agreement scale; after reversing, higher = more lack of readiness. Pre AND
-// post; NOT fed to the AI. Replaces the former CDSE-SA + CIP-CCA distal outcomes
-// (removed 17 Jun 2026 per researcher decision).
-// [VERIFY — wording] These render the CIP-Short LR items from the abbreviated stems
-// in Xu (2020, Table 4); confirm the exact published wording against Xu & Tracey
-// (2017b), J. Counseling Psychology 64, 222–232, before fielding.
+// (Xu & Tracey, 2017b, Table 4). 5 items, ALL reverse-scored on the original 6-point
+// agreement scale; after reversing, higher = more lack of readiness (lower readiness).
+// Pre AND post; NOT fed to the AI. Replaces the former CDSE-SA + CIP-CCA distal
+// outcomes (17 Jun 2026). Wording is the team's documented verbatim set (Brief
+// Appendix F) — identical to Andrea's LR DV, so the two studies share one instrument.
 const CIP_LR_ITEMS = [
-  { id: 'cip_lr_1', text: 'I am confident I can overcome any obstacles on the way to my career goals.', reverse: true },
-  { id: 'cip_lr_2', text: 'I try to excel at everything I do.', reverse: true },
-  { id: 'cip_lr_3', text: 'I will be able to find a career that fits me well.', reverse: true },
+  { id: 'cip_lr_1', text: 'I am confident I can overcome obstacles.', reverse: true },
+  { id: 'cip_lr_2', text: 'I try to excel at everything.', reverse: true },
+  { id: 'cip_lr_3', text: 'I will be able to find a career.', reverse: true },
   { id: 'cip_lr_4', text: 'I always work productively.', reverse: true },
-  { id: 'cip_lr_5', text: 'I am confident I will find a career I can perform well in.', reverse: true },
+  { id: 'cip_lr_5', text: "I am confident I can find a career I'll perform well in.", reverse: true },
 ];
 const CIP_SCALE = { points: 6, left: 'Completely disagree', right: 'Strongly agree' };
-console.warn('[CIP-LR] Items render the CIP-Short Table-4 stems (Xu 2020); verify the exact wording against Xu & Tracey (2017b) before fielding.');
 
 // --- Field renderers -------------------------------------------------------
 
