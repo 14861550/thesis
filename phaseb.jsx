@@ -216,9 +216,8 @@ function PhaseB({ profileData, rec = 'reflective', seedTranscript = [], onDone, 
             </div>
           </div>
 
-          {/* In-flow career chooser (redesigned 14 Jun 2026, replacing the
-              stranded top-right ghost button). Reachable from the start: a quiet
-              prompt early on, then a clear call once directions have been proposed. */}
+          {/* In-flow career chooser ENTRY (the chooser itself now opens as a
+              separate full-screen page — see the overlay below). */}
           {!showLock && !pending && (
             <div className={`pb-choose-bar ${hasRecs ? 'ready' : ''}`}>
               {hasRecs ? (
@@ -233,12 +232,23 @@ function PhaseB({ profileData, rec = 'reflective', seedTranscript = [], onDone, 
               )}
             </div>
           )}
+        </div>
+      </div>
 
-          {showLock && (
-            <div className="pb-lock fade-in" ref={lockRef}>
+      {/* Career lock-in as a SEPARATE full-screen page (17 Jun 2026): it no longer
+          sits under the chat. "Back to chat" returns to the conversation (e.g. to
+          tap a suggested card), which reopens this page with the choice filled. */}
+      {showLock && (
+        <div className="pb-lock-overlay" role="dialog" aria-modal="true">
+          <div className="pb-lock-sheet fade-in" ref={lockRef}>
+            <button className="btn ghost sm pb-lock-back" onClick={() => setShowLock(false)}>
+              <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M10 6.5H3M6.5 3l-4 3.5 4 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+              Back to chat
+            </button>
+            <div className="pb-lock">
               <div className="pb-lock-h">{career.trim() ? `Step into life as a ${career.trim()}?` : 'Ready to step into one?'}</div>
               <p className="sv-intro" style={{ margin: '0 0 12px' }}>
-                {hasRecs ? 'Tap a card above to choose, or type your own. ' : ''}Pick the career you're most curious to experience as your future self — you can explore others later.
+                {hasRecs ? 'Go back to the chat to tap a suggested card, or type your own below. ' : ''}Pick the career you're most curious to experience as your future self — you can explore others later.
               </p>
               <input className="sv-input" placeholder="The career you choose — e.g. Data analyst"
                 value={career} onChange={(e) => { setCareer(e.target.value); setCareerNote(null); }} />
@@ -262,9 +272,9 @@ function PhaseB({ profileData, rec = 'reflective', seedTranscript = [], onDone, 
                 </p>
               )}
             </div>
-          )}
+          </div>
         </div>
-      </div>
+      )}
 
       <div className="composer-wrap pb-composer">
         {error && <div className="composer-error">{error}</div>}

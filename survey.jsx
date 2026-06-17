@@ -2,12 +2,12 @@
  * survey.jsx — validated pre/post instruments (Status Brief §2.5, §3.4, §3.7) and a
  * small data-driven renderer. Pre-survey = Phase A; post-survey runs after Phase C.
  *
- * Instruments: BFI-10 (Rammstedt & John, 2007), Schwartz-aligned work values,
- * RIASEC 6-item interest screen, a single IOS closeness item, and a 4-item
- * future-self vividness scale. Pre/post use the SAME closeness/vividness items for
- * comparability. (The earlier two-item FSCS continuity pair was dropped on
- * supervisor feedback — 14 Jun 2026 — as it read as redundant with the IOS item;
- * closeness is now the IOS measure alone.) The future-self referent is kept generic
+ * Instruments: TIPI-10 (Gosling et al., 2003), O*NET work values, RIASEC 6-item
+ * interest screen, the IOS closeness item, the 2-item pictorial FSCS continuity
+ * pair (Ersner-Hershfield et al., 2009), and a 4-item future-self vividness scale.
+ * Pre/post use the SAME mediator items for comparability. (Continuity/FSCS was
+ * briefly removed on 14 Jun 2026, then RESTORED on 17 Jun 2026 — it is the only
+ * measure of the continuity mediator / H3.) The future-self referent is kept generic
  * ("about 10 years from now") because the career is chosen later, in Phase B.
  *
  * All components destructure React hooks inside function scope (the no-build setup
@@ -67,9 +67,21 @@ const RIASEC = [
 ];
 const RIASEC_SCALE = { points: 7, left: 'Not interested', right: 'Extremely interested' };
 
-// Future-self measures (same items pre and post). Closeness is the single IOS
-// circles item (below); the former two-item FSCS continuity pair was removed on
-// supervisor feedback (14 Jun 2026) as redundant with it.
+// Future-self mediator measures (same items pre and post): closeness = IOS circles
+// item; continuity = the 2-item pictorial FSCS pair (RESTORED 17 Jun 2026); vividness
+// = 4 agree items.
+//
+// Continuity — Future Self-Continuity Scale (Ersner-Hershfield et al., 2009): two
+// pictorial items in the IOS circles format (similarity + connectedness); continuity
+// score = mean of the two. This is the sole measure of the continuity mediator (H3)
+// and of what the "biographical grounding" design component targets; its 14 Jun
+// removal left continuity unmeasured, so it is restored here.
+const FSCS = [
+  { id: 'fscs_similar', text: 'How SIMILAR do you feel to your future self, about 10 years from now?',
+    hint: 'Similar = how alike that future person is to who you are now.' },
+  { id: 'fscs_connected', text: 'How CONNECTED do you feel to your future self, about 10 years from now?',
+    hint: 'Connected = how linked the two of you feel, as one continuous person over time.' },
+];
 const VIVIDNESS = [
   { id: 'viv_clear', text: 'I can picture my future self clearly.' },
   { id: 'viv_tangible', text: 'My future self feels tangible and real to me, not abstract.' },
@@ -92,40 +104,23 @@ const OPEN_ENDED = [
   { id: 'oe_broke', text: 'Was there any moment that broke the feeling — that made the future self feel fake, generic, or off? What happened?' },
 ];
 
-// Distal outcome 1 — Career decision self-efficacy: CDSE-SF Self-Appraisal
-// subscale (Betz, Klein & Taylor, 1996). Pre AND post; original stem + 5-level
-// confidence scale verbatim. NOT fed to the AI. [VERIFY] all five items against
-// the licensed instrument (Mind Garden) before fielding (Build Plan §10.1i).
-const CDSE_STEM = 'How much confidence do you have that you could:';
-const CDSE_SA_ITEMS = [
-  { id: 'cdse_1', text: 'Accurately assess your abilities.' },
-  { id: 'cdse_2', text: 'Determine what your ideal job would be.' },
-  { id: 'cdse_3', text: 'Decide what you value most in an occupation.' },
-  { id: 'cdse_4', text: 'Figure out what you are and are not ready to sacrifice to achieve your career goals.' },
-  { id: 'cdse_5', text: 'Define the type of lifestyle you would like to live.' },
+// Distal outcome — Career indecision: CIP-Short "Lack of Readiness" (LR) subscale
+// (Xu & Tracey, 2017b; validation Xu, 2020). 5 items, ALL reverse-scored, original
+// 6-point agreement scale; after reversing, higher = more lack of readiness. Pre AND
+// post; NOT fed to the AI. Replaces the former CDSE-SA + CIP-CCA distal outcomes
+// (removed 17 Jun 2026 per researcher decision).
+// [VERIFY — wording] These render the CIP-Short LR items from the abbreviated stems
+// in Xu (2020, Table 4); confirm the exact published wording against Xu & Tracey
+// (2017b), J. Counseling Psychology 64, 222–232, before fielding.
+const CIP_LR_ITEMS = [
+  { id: 'cip_lr_1', text: 'I am confident I can overcome any obstacles on the way to my career goals.', reverse: true },
+  { id: 'cip_lr_2', text: 'I try to excel at everything I do.', reverse: true },
+  { id: 'cip_lr_3', text: 'I will be able to find a career that fits me well.', reverse: true },
+  { id: 'cip_lr_4', text: 'I always work productively.', reverse: true },
+  { id: 'cip_lr_5', text: 'I am confident I will find a career I can perform well in.', reverse: true },
 ];
-const CDSE_SCALE = {
-  points: 5, left: 'No confidence at all', right: 'Complete confidence',
-  anchors: ['1 = No confidence at all', '2 = Very little confidence', '3 = Moderate confidence',
-    '4 = Much confidence', '5 = Complete confidence'],
-};
-
-// Distal outcome 2 — Career indecision: CIP-Short-5, Choice/Commitment-Anxiety
-// subscale (Xu & He, 2022). Pre AND post; original 6-point scale (higher = more
-// indecision). NOT fed to the AI. [VERIFY — BLOCKING] three items below are
-// placeholders until the exact five CCA items are copied verbatim from
-// Xu & He (2022), J. Career Assessment 30(4) — see Build Plan §10.1j.
-const CIP_CCA_ITEMS = [
-  { id: 'cip_1', text: 'I often feel nervous when thinking about choosing a career.' },
-  { id: 'cip_2', text: 'I am reluctant to commit myself to a particular career direction.' },
-  { id: 'cip_3', text: '[PENDING — insert verbatim from Xu & He (2022)]' },
-  { id: 'cip_4', text: '[PENDING — insert verbatim from Xu & He (2022)]' },
-  { id: 'cip_5', text: '[PENDING — insert verbatim from Xu & He (2022)]' },
-];
-const CIP_SCALE = { points: 6, left: 'Complete disagreement', right: 'Strong agreement' };
-if (CIP_CCA_ITEMS.some((i) => i.text.includes('PENDING'))) {
-  console.warn('[CIP-CCA] Placeholder items present — the study is NOT fieldable until the five verbatim items from Xu & He (2022) are inserted into CIP_CCA_ITEMS.');
-}
+const CIP_SCALE = { points: 6, left: 'Completely disagree', right: 'Strongly agree' };
+console.warn('[CIP-LR] Items render the CIP-Short Table-4 stems (Xu 2020); verify the exact wording against Xu & Tracey (2017b) before fielding.');
 
 // --- Field renderers -------------------------------------------------------
 
@@ -157,7 +152,7 @@ function LikertGrid({ items, scale, prefix, answers, onChange }) {
   return (
     <div className="sv-grid">
       {/* Original-instruments rule (§16): when a scale defines verbatim anchor
-          labels (TIPI 7, CDSE-SA 5), show the full legend once for the block. */}
+          labels (e.g. TIPI's 7), show the full legend once for the block. */}
       {scale.anchors && (
         <div className="sv-anchors">{scale.anchors.join('   ·   ')}</div>
       )}
@@ -378,11 +373,12 @@ function buildPreSections(answers, onChange) {
     {
       // Standalone imagination page (supervisor feedback, 14 Jun 2026): give
       // people a moment to actually conjure the future self before we ask how
-      // close it feels. No inputs; the Continue button holds for 20 seconds.
+      // close it feels. No inputs, and skippable — the Continue button is enabled
+      // immediately (the forced 20-second hold was removed 17 Jun 2026 per
+      // researcher request; sit with it as long, or as little, as you like).
       title: 'Picture that future you',
       intro: 'Take a moment for this one — there is nothing to answer here, just a minute to imagine.',
       ids: [],
-      holdSeconds: 20,
       node: (
         <ImagineSequence
           lines={[
@@ -404,6 +400,20 @@ function buildPreSections(answers, onChange) {
       ),
     },
     {
+      // Continuity (FSCS) — restored 17 Jun 2026; two pictorial circles items.
+      title: 'How continuous is your future self?',
+      intro: 'Two more quick pictures — pick the pair of circles that fits best for each.',
+      ids: FSCS.map((i) => i.id),
+      node: (
+        <div className="sv-section">
+          {FSCS.map((it) => (
+            <CirclesField key={it.id} id={it.id} text={it.text} hint={it.hint}
+              value={answers[it.id]} onChange={set} />
+          ))}
+        </div>
+      ),
+    },
+    {
       title: 'Picturing that future',
       intro: 'How much do you agree with each statement?',
       ids: VIVIDNESS.map((i) => i.id),
@@ -411,22 +421,13 @@ function buildPreSections(answers, onChange) {
     },
     {
       title: 'Your career decision',
-      eyebrow: 'Part 1 of 2',
-      intro: "Where you stand with career decisions right now — you'll answer these again after the conversation.",
-      ids: CDSE_SA_ITEMS.map((i) => i.id),
+      intro: "Where you stand with career decisions right now — you'll answer these again after the conversation. How much do you agree with each?",
+      ids: CIP_LR_ITEMS.map((i) => i.id),
       node: (
         <div className="sv-section">
-          <p className="sv-stem">{CDSE_STEM}</p>
-          <LikertGrid items={CDSE_SA_ITEMS} scale={CDSE_SCALE} answers={answers} onChange={set} />
+          <LikertGrid items={CIP_LR_ITEMS} scale={CIP_SCALE} answers={answers} onChange={set} />
         </div>
       ),
-    },
-    {
-      title: 'Your career decision',
-      eyebrow: 'Part 2 of 2',
-      intro: 'How much do you agree with each statement?',
-      ids: CIP_CCA_ITEMS.map((i) => i.id),
-      node: <LikertGrid items={CIP_CCA_ITEMS} scale={CIP_SCALE} answers={answers} onChange={set} />,
     },
   ];
 }
@@ -447,6 +448,19 @@ function buildPostSections(answers, onChange, career, study = 'kangzhi') {
       ),
     },
     {
+      title: 'And now — how continuous is your future self?',
+      intro: 'The same two pictures — pick the pair of circles that fits best for each, now.',
+      ids: FSCS.map((i) => i.id + '_post'),
+      node: (
+        <div className="sv-section">
+          {FSCS.map((it) => (
+            <CirclesField key={it.id} id={it.id + '_post'} text={it.text} hint={it.hint}
+              value={answers[it.id + '_post']} onChange={set} />
+          ))}
+        </div>
+      ),
+    },
+    {
       title: 'Picturing that future, now',
       intro: 'How much do you agree with each statement?',
       ids: vivPost.map((i) => i.id),
@@ -454,24 +468,14 @@ function buildPostSections(answers, onChange, career, study = 'kangzhi') {
     },
     {
       title: 'Your career decision, now',
-      eyebrow: 'Part 1 of 2',
-      intro: 'The same short sets as before — answer for how you feel right now.',
-      ids: CDSE_SA_ITEMS.map((i) => i.id + '_post'),
+      intro: 'The same statements as before — answer for how you feel right now.',
+      ids: CIP_LR_ITEMS.map((i) => i.id + '_post'),
       node: (
         <div className="sv-section">
-          <p className="sv-stem">{CDSE_STEM}</p>
-          <LikertGrid items={CDSE_SA_ITEMS.map((i) => ({ ...i, id: i.id + '_post' }))}
-            scale={CDSE_SCALE} answers={answers} onChange={set} />
+          <LikertGrid items={CIP_LR_ITEMS.map((i) => ({ ...i, id: i.id + '_post' }))}
+            scale={CIP_SCALE} answers={answers} onChange={set} />
         </div>
       ),
-    },
-    {
-      title: 'Your career decision, now',
-      eyebrow: 'Part 2 of 2',
-      intro: 'How much do you agree with each statement?',
-      ids: CIP_CCA_ITEMS.map((i) => i.id + '_post'),
-      node: <LikertGrid items={CIP_CCA_ITEMS.map((i) => ({ ...i, id: i.id + '_post' }))}
-        scale={CIP_SCALE} answers={answers} onChange={set} />,
     },
     {
       title: 'About the conversation',
@@ -536,9 +540,10 @@ function buildPostSections(answers, onChange, career, study = 'kangzhi') {
 
 // --- Paged survey container ------------------------------------------------
 
-// v2: bumped when the pre-survey page count changed (imagination page added,
-// FSCS items removed — 14 Jun 2026 feedback) so stale saved indices reset.
-const SVPAGE_KEY = 'thesis_svpage_v2';
+// v3: bumped whenever the pre/post page set changes (17 Jun 2026: FSCS continuity
+// restored, CDSE + CIP-CCA replaced by a single CIP-LR page) so stale saved page
+// indices reset.
+const SVPAGE_KEY = 'thesis_svpage_v3';
 const readSvPage = (k) => {
   try { return Number(JSON.parse(localStorage.getItem(SVPAGE_KEY) || '{}')[k]) || 0; } catch (e) { return 0; }
 };
@@ -660,15 +665,26 @@ function scoreBigFive(a) {
   return out;
 }
 
-/** Mean of a 5-item distal-outcome scale; suffix '' (pre) or '_post'. */
+/** Mean of a multi-item scale; suffix '' (pre) or '_post'. */
 function scaleMean(a, items, suffix = '') {
   const vals = items.map((i) => Number(a[i.id + suffix])).filter((v) => !Number.isNaN(v));
   return vals.length === items.length
     ? Math.round((vals.reduce((s, v) => s + v, 0) / vals.length) * 100) / 100
     : null;
 }
-const scoreCdseSA = (a, suffix = '') => scaleMean(a, CDSE_SA_ITEMS, suffix);  // 1–5
-const scoreCipCCA = (a, suffix = '') => scaleMean(a, CIP_CCA_ITEMS, suffix);  // 1–6
+// Continuity (FSCS) = mean of the two pictorial items, 1–7 (no reverse).
+const scoreFSCS = (a, suffix = '') => scaleMean(a, FSCS, suffix);
+// CIP-Short Lack of Readiness = mean of the five items, each reverse-scored on the
+// 6-point scale (7 − raw), so higher = more lack of readiness. 1–6.
+function scoreCipLR(a, suffix = '') {
+  const vals = CIP_LR_ITEMS.map((it) => {
+    const raw = Number(a[it.id + suffix]);
+    return Number.isNaN(raw) ? NaN : (it.reverse ? 7 - raw : raw);
+  }).filter((v) => !Number.isNaN(v));
+  return vals.length === CIP_LR_ITEMS.length
+    ? Math.round((vals.reduce((s, v) => s + v, 0) / vals.length) * 100) / 100
+    : null;
+}
 function scoreRiasec(a) {
   const out = {};
   for (const i of RIASEC) { const v = Number(a[i.id]); if (!Number.isNaN(v)) out[i.key] = v; }
@@ -700,5 +716,5 @@ function buildProfileData(pre) {
 Object.assign(window, {
   ScaleRow, LikertGrid, CirclesField, IOSField, ChoiceField, MultiField,
   PreSurvey, PostSurvey, buildProfileData, scoreBigFive, scoreRiasec,
-  scoreCdseSA, scoreCipCCA,
+  scoreCipLR, scoreFSCS,
 });

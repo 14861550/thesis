@@ -7,7 +7,7 @@ const babel = require('@babel/core');
 const { JSDOM } = require('jsdom');
 
 const ROOT = path.join(__dirname, '..');
-const FILES = ['tweaks-panel.jsx', 'graphics.jsx', 'screens.jsx', 'survey.jsx', 'chat.jsx', 'phaseb.jsx', 'dayinlife.jsx', 'app.jsx'];
+const FILES = ['tweaks-panel.jsx', 'graphics.jsx', 'screens.jsx', 'survey.jsx', 'chat.jsx', 'phaseb.jsx', 'app.jsx'];
 
 const dom = new JSDOM('<!doctype html><html><body><div id="root"></div></body></html>',
   { runScripts: 'outside-only', pretendToBeVisual: true, url: 'http://localhost/?condition=main' });

@@ -25,7 +25,6 @@ import { dbEnabled, initSchema, probe } from './lib/db.js';
 import { mountStudyRoutes } from './lib/study_routes.js';
 import { mountAdminRoutes } from './lib/admin_routes.js';
 import { mountResultsRoutes } from './lib/results_routes.js';
-import { dayInLifeEnabled, startDayInLifeJob, jobStatus, segmentFile } from './lib/video.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -281,35 +280,6 @@ app.post('/api/chat', async (req, res) => {
     session.messages.pop(); // roll back the user turn so a retry is clean
     res.status(502).json({ error: 'Your future self went quiet. Please try again.' });
   }
-});
-
-// --- "Day in the life" video (optional pre-chat stimulus, OFF by default) -----
-// Kicked off when a career is locked in; the frontend polls until the clips are
-// ready, then plays morning/afternoon/evening. Disabled cleanly (enabled:false)
-// when VIDEO_ENABLED/GEMINI_API_KEY aren't set, so the flow is unchanged.
-app.post('/api/day-in-life', (req, res) => {
-  if (!dayInLifeEnabled()) return res.json({ enabled: false });
-  const { profileData = {}, phaseBNotes = '', location = '' } = req.body || {};
-  try {
-    const jobId = startDayInLifeJob({ profileData, phaseBNotes, location, complete });
-    res.json({ enabled: true, jobId });
-  } catch (err) {
-    console.error('POST /api/day-in-life failed:', err?.message || err);
-    res.json({ enabled: false });
-  }
-});
-
-app.get('/api/day-in-life/:jobId', (req, res) => {
-  const status = jobStatus(req.params.jobId);
-  if (!status) return res.status(404).json({ error: 'Unknown job.' });
-  res.json(status);
-});
-
-app.get('/api/day-in-life/:jobId/:seg', (req, res) => {
-  const file = segmentFile(req.params.jobId, req.params.seg);
-  if (!file) return res.status(404).end();
-  res.type('video/mp4');
-  res.sendFile(file);
 });
 
 app.post('/api/regenerate', async (req, res) => {

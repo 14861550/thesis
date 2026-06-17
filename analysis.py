@@ -31,12 +31,11 @@ VIV_PRE = ["viv_clear", "viv_tangible", "viv_detail", "viv_felt"]
 VIV_POST = [i + "_post" for i in VIV_PRE]
 MANIP = ["mc_style", "mc_scene", "mc_understand"]
 
-# v5.1 distal outcomes (Build Plan §10.1i/j): CDSE-SF Self-Appraisal (1-5),
-# CIP-Short-5 Choice/Commitment-Anxiety (1-6; higher = MORE indecision).
-CDSE_PRE = [f"cdse_{i}" for i in range(1, 6)]
-CDSE_POST = [i + "_post" for i in CDSE_PRE]
-CIP_PRE = [f"cip_{i}" for i in range(1, 6)]
-CIP_POST = [i + "_post" for i in CIP_PRE]
+# Distal outcome (Build Plan §10.1i/j): CIP-Short Lack of Readiness subscale
+# (cip_lr_1..5, 1-6). ALL FIVE ITEMS ARE REVERSE-SCORED — the subscale score is
+# the mean of (7 - raw), so higher = MORE ready (less lack of readiness).
+CIP_LR_PRE = [f"cip_lr_{i}" for i in range(1, 6)]
+CIP_LR_POST = [i + "_post" for i in CIP_LR_PRE]
 
 # TIPI (Gosling et al., 2003) — mirror of the app scoring (Build Plan §9):
 # reversed = 8 - raw; trait = mean of its two items, natively /7; ES not N.
@@ -70,9 +69,13 @@ def _mean(xs):
     return sum(vals) / len(vals) if vals else None
 
 
-def _scale_mean(resp, ids):
-    """Mean of a scale's items within ONE response (None if all missing)."""
+def _scale_mean(resp, ids, reverse_max=None):
+    """Mean of a scale's items within ONE response (None if all missing).
+    If reverse_max is given, each item is reverse-scored as (reverse_max + 1 - raw)
+    before averaging (CIP-LR is reverse-scored on its 1-6 frame: 7 - raw)."""
     vals = [v for v in (_num(resp.get(i)) for i in ids) if v is not None]
+    if reverse_max is not None:
+        vals = [(reverse_max + 1) - v for v in vals]
     return sum(vals) / len(vals) if vals else None
 
 
@@ -92,13 +95,14 @@ def _by_condition(studies):
     return groups
 
 
-def _outcome_series(group, pre_ids, post_ids, ios=False):
-    """Return (pre[], post[], change[]) of per-person scale means."""
+def _outcome_series(group, pre_ids, post_ids, ios=False, reverse_max=None):
+    """Return (pre[], post[], change[]) of per-person scale means.
+    reverse_max reverse-scores each item (reverse_max+1-raw) — used for CIP-LR."""
     pre, post, change = [], [], []
     for s in group:
         P, Q = s.get("preSurvey") or {}, s.get("postSurvey") or {}
-        a = _num(P.get("ios_pre")) if ios else _scale_mean(P, pre_ids)
-        b = _num(Q.get("ios_post")) if ios else _scale_mean(Q, post_ids)
+        a = _num(P.get("ios_pre")) if ios else _scale_mean(P, pre_ids, reverse_max)
+        b = _num(Q.get("ios_post")) if ios else _scale_mean(Q, post_ids, reverse_max)
         if a is not None:
             pre.append(a)
         if b is not None:
@@ -144,14 +148,13 @@ def descriptives(studies):
             "n": len(group),
             "completed": sum(1 for s in group if (s.get("meta") or {}).get("completedAt")),
         }
-        for name, pre_ids, post_ids, ios in [
-            ("ios", None, None, True),
-            ("fscs", FSCS_PRE, FSCS_POST, False),
-            ("vividness", VIV_PRE, VIV_POST, False),
-            ("cdse_sa", CDSE_PRE, CDSE_POST, False),   # distal outcome, 1-5
-            ("cip_cca", CIP_PRE, CIP_POST, False),     # distal outcome, 1-6 (higher = more indecision)
+        for name, pre_ids, post_ids, ios, rev in [
+            ("ios", None, None, True, None),
+            ("fscs", FSCS_PRE, FSCS_POST, False, None),
+            ("vividness", VIV_PRE, VIV_POST, False, None),
+            ("cip_lr", CIP_LR_PRE, CIP_LR_POST, False, 6),  # distal outcome, 1-6, reverse-scored (mean of 7-raw)
         ]:
-            pre, post, change = _outcome_series(group, pre_ids, post_ids, ios)
+            pre, post, change = _outcome_series(group, pre_ids, post_ids, ios, rev)
             row[name] = {
                 "pre_mean": _mean(pre),
                 "post_mean": _mean(post),
@@ -170,15 +173,14 @@ def effect_sizes(studies):
     if "main" not in g or "baseline" not in g:
         return {"status": "needs both main and baseline groups"}
     res = {}
-    for name, pre_ids, post_ids, ios in [
-        ("ios", None, None, True),
-        ("fscs", FSCS_PRE, FSCS_POST, False),
-        ("vividness", VIV_PRE, VIV_POST, False),
-        ("cdse_sa", CDSE_PRE, CDSE_POST, False),
-        ("cip_cca", CIP_PRE, CIP_POST, False),
+    for name, pre_ids, post_ids, ios, rev in [
+        ("ios", None, None, True, None),
+        ("fscs", FSCS_PRE, FSCS_POST, False, None),
+        ("vividness", VIV_PRE, VIV_POST, False, None),
+        ("cip_lr", CIP_LR_PRE, CIP_LR_POST, False, 6),
     ]:
-        _, _, cm = _outcome_series(g["main"], pre_ids, post_ids, ios)
-        _, _, cb = _outcome_series(g["baseline"], pre_ids, post_ids, ios)
+        _, _, cm = _outcome_series(g["main"], pre_ids, post_ids, ios, rev)
+        _, _, cb = _outcome_series(g["baseline"], pre_ids, post_ids, ios, rev)
         res[name] = {"cohens_d_change": cohens_d(cm, cb), "n_main": len(cm), "n_baseline": len(cb)}
     return res
 
@@ -207,10 +209,10 @@ def inter_item_r(group, ids):
 def reliability(studies):
     alls = [s for grp in _by_condition(studies).values() for s in grp]
     return {
-        # alpha only for multi-item Likert scales (vividness, CDSE-SA, CIP-CCA).
+        # alpha only for multi-item Likert scales (vividness, CIP-LR). Cronbach's
+        # alpha is invariant to uniform reverse-scoring, so raw CIP-LR items are fine.
         "vividness_pre_alpha": cronbach_alpha(alls, VIV_PRE),
-        "cdse_sa_pre_alpha": cronbach_alpha(alls, CDSE_PRE),
-        "cip_cca_pre_alpha": cronbach_alpha(alls, CIP_PRE),
+        "cip_lr_pre_alpha": cronbach_alpha(alls, CIP_LR_PRE),
         # 2-item scales: report the inter-item correlation instead of alpha.
         "fscs_pre_inter_item_r": inter_item_r(alls, FSCS_PRE),
         # TIPI traits are 2-item by design; Gosling et al. (2003) argue reliability
@@ -245,14 +247,13 @@ def paired_prepost(studies):
         _sps = None
     alls = [s for grp in _by_condition(studies).values() for s in grp]
     out = {}
-    for name, pre_ids, post_ids, ios in [
-        ("ios", None, None, True),
-        ("fscs", FSCS_PRE, FSCS_POST, False),
-        ("vividness", VIV_PRE, VIV_POST, False),
-        ("cdse_sa", CDSE_PRE, CDSE_POST, False),
-        ("cip_cca", CIP_PRE, CIP_POST, False),
+    for name, pre_ids, post_ids, ios, rev in [
+        ("ios", None, None, True, None),
+        ("fscs", FSCS_PRE, FSCS_POST, False, None),
+        ("vividness", VIV_PRE, VIV_POST, False, None),
+        ("cip_lr", CIP_LR_PRE, CIP_LR_POST, False, 6),
     ]:
-        _, _, change = _outcome_series(alls, pre_ids, post_ids, ios)
+        _, _, change = _outcome_series(alls, pre_ids, post_ids, ios, rev)
         n = len(change)
         if n < 3:
             out[name] = {"n": n, "note": "too few paired observations"}
