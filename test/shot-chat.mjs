@@ -40,7 +40,8 @@ async function cap(vp){
   }
   if(await T('Continue').count()){await T('Continue').click(); await settle(300);} // pause A→B
   await page.locator('.pb-composer textarea').fill('I like turning messy data into clear stories people use.').catch(()=>{});
-  await page.locator('.pb-composer .send').click().catch(()=>{}); await page.waitForTimeout(600);
+  await page.locator('.pb-composer .send').click().catch(()=>{}); await page.waitForTimeout(700);
+  await page.screenshot({path:path.join(ROOT,'shots',`06b-recs-thread.${vp.name}.png`)}); // cards in the thread
   await page.locator('.rec-card').first().click().catch(()=>{}); await page.waitForTimeout(300);
   // lock sheet: set both scales fully, then step in
   await page.evaluate(()=>document.querySelectorAll('.pb-lock-sheet .sv-scale').forEach(s=>{const p=s.querySelectorAll('.sv-pt');p.length&&p[p.length-1].click();}));
