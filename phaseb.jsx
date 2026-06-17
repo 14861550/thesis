@@ -86,9 +86,9 @@ function PhaseB({ profileData, rec = 'direct', seedTranscript = [], onDone, onBa
     try {
       const { reply, recommendations } = await postJSON('/api/chat', { sessionId: sessionId.current, message: t });
       setMessages((p) => [...p, { role: 'guide', paras: splitParas(reply), recommendations: recommendations || null, id: `g${Date.now()}`, ts: new Date().toISOString() }]);
-      // Only reveal the lock-in once the guide has actually proposed directions —
-      // not after the first question (which felt premature in testing).
-      if (recommendations && recommendations.length) setShowLock(true);
+      // Recommendations render as cards in the thread — we no longer auto-open
+      // the lock-in over them (it hid the very cards it told you to go tap). The
+      // user opens the chooser by tapping a card or the "Choose a career" prompt.
     } catch (e) {
       setError(e.message || 'Something went wrong. Please try again.');
     } finally { setPending(false); }
