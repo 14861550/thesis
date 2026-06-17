@@ -791,6 +791,11 @@ body:has(.composer-wrap) .restart-fab { bottom: 100px; left: 20px; }
    (desktop) or the ask-chips row (mobile). */
 body:has(.chat-app) .restart-fab { display: none; }
 
+/* The career lock-in overlay carries its own actions ("Back to chat", "Step into
+   this future") — the floating Restart/comfort fabs only collided with them. */
+body:has(.pb-lock-overlay) .restart-fab,
+body:has(.pb-lock-overlay) .comfort-fab { display: none; }
+
 /* Free continuation: the earlier role-play transcript shown read-only above the
    new turns, slightly dimmed, with a quiet divider where "now" begins. */
 .msg.history { opacity: .62; }

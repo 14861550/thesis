@@ -247,7 +247,7 @@ function PhaseB({ profileData, rec = 'direct', seedTranscript = [], onDone, onBa
                 value={career} onChange={(e) => { setCareer(e.target.value); setCareerNote(null); }} />
               {careerNote && <div className="composer-error" style={{ marginTop: 8, textAlign: 'left' }}>{careerNote}</div>}
               <input className="sv-input" style={{ marginTop: 8 }}
-                placeholder="Where, for the next ten years? — a city, country, region, or 'open' (optional)"
+                placeholder="Where? — a city, country, or 'open' (optional)"
                 value={location} onChange={(e) => setLocation(e.target.value)} />
               <div style={{ marginTop: 10 }}>
                 <ScaleRow id="fam" text={`How familiar do you already feel with ${career.trim() || 'this career'}?`}
