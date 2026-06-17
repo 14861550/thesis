@@ -108,6 +108,12 @@
     .s-in_progress, .s-running { --c: #c2891f; }
     .s-started, .s-queued { --c: #4a78c2; }
     .s-abandoned, .s-failed { --c: var(--accent); }
+    /* ---------- Data-source badges (real participant vs ad-hoc/test vs synthetic) ---------- */
+    .pill.src-real { --c: #2f8f5b; font-weight: 700; }
+    .pill.src-test { --c: var(--muted); }
+    .pill.src-synth { --c: #8a5cc2; }
+    .note.real { background: color-mix(in oklch, #3f9d6a 11%, var(--surface)); border-color: color-mix(in oklch, #3f9d6a 40%, transparent); color: var(--ink); }
+    .note.synth { background: color-mix(in oklch, #8a5cc2 10%, var(--surface)); border-color: color-mix(in oklch, #8a5cc2 36%, transparent); }
 
     /* ---------- Panels / modal ---------- */
     .overlay { position: fixed; inset: 0; z-index: 20; padding: 24px; display: grid; place-items: center;
@@ -175,6 +181,11 @@ async function api(path, opts = {}) {
 const short = (id) => (id || '').slice(0, 8);
 const fmt = (t) => t ? new Date(t).toLocaleString() : '—';
 const Pill = ({ s }) => <span className={'pill s-' + s}>{s}</span>;
+// A session counts as REAL participant data when it carries a PID minted by a
+// generated recruit link; rows with no PID are admin ad-hoc / test sessions.
+const SourceBadge = ({ pid, showPid }) => pid
+  ? <span className="pill src-real" title={'Real participant — recruited via generated link (' + pid + ')'}>{showPid ? 'Real · ' + pid : 'Real'}</span>
+  : <span className="pill src-test" title="No participant link — ad-hoc / test session">test</span>;
 
 // Tidy CSV export — one row per run, all scalars + scored scales (§14). Built
 // client-side from the JSON export so it always matches what the DB holds.
@@ -253,12 +264,14 @@ function SessionDetail({ id, onClose }) {
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <span className="close" onClick={onClose}>×</span>
         <h2>
-          Session <code className="id">{short(id)}</code> <Pill s={d.status} />
-          <span className="muted" style={{ fontSize: 14 }}>{meta.rec || '—'} × {d.condition}{meta.pid ? ' · ' + meta.pid : ''}</span>
+          Session <code className="id">{short(id)}</code> <Pill s={d.status} /> <SourceBadge pid={meta.pid} showPid />
         </h2>
-        <p className="muted" style={{ margin: '2px 0 14px' }}>
+        <p className="muted" style={{ margin: '2px 0 10px' }}>
           Created {fmt(d.created_at)} · Completed {fmt(d.completed_at)}
         </p>
+        {meta.pid
+          ? <div className="note real"><b>Real participant data</b> — recruited via a generated link. Version: study=<b>{meta.study || '—'}</b> · rec=<b>{meta.rec || '—'}</b> · cond=<b>{d.condition || '—'}</b> · link #<b>{meta.pid}</b></div>
+          : <div className="note"><b>Ad-hoc / test session</b> — no participant link (PID). Version: study=<b>{meta.study || '—'}</b> · rec=<b>{meta.rec || '—'}</b> · cond=<b>{d.condition || '—'}</b></div>}
         <div className="row" style={{ marginBottom: 16 }}>
           <a className="btn" href={resumeUrl({ id, condition: d.condition, rec: meta.rec, study: meta.study, pid: meta.pid })} target="_blank" rel="noreferrer">Resume session ↗</a>
           <button className="btn" onClick={() => navigator.clipboard.writeText(resumeUrl({ id, condition: d.condition, rec: meta.rec, study: meta.study, pid: meta.pid }))}>Copy resume link</button>
@@ -396,11 +409,12 @@ function SessionsView() {
         <button className="btn" onClick={() => { location.href = '/api/admin/sessions/export?deidentify=1'; }}>Export de-identified</button>
       </div>
       <table>
-        <thead><tr><th>ID</th><th>PID</th><th>Study</th><th>Rec</th><th>Cond</th><th>Status</th><th>Career</th><th>C-turns</th><th>Created</th><th>Completed</th><th></th></tr></thead>
+        <thead><tr><th>ID</th><th>Source</th><th>PID</th><th>Study</th><th>Rec</th><th>Cond</th><th>Status</th><th>Career</th><th>C-turns</th><th>Created</th><th>Completed</th><th></th></tr></thead>
         <tbody>
           {rows.map((r) => (
             <tr key={r.id}>
               <td><code className="id">{short(r.id)}</code></td>
+              <td><SourceBadge pid={r.pid} /></td>
               <td className="muted">{r.pid || '—'}</td>
               <td className="muted">{r.study || '—'}</td>
               <td>{r.rec || '—'}</td>
@@ -418,7 +432,7 @@ function SessionsView() {
               </td>
             </tr>
           ))}
-          {!rows.length && <tr><td colSpan="11" className="muted">No sessions yet.</td></tr>}
+          {!rows.length && <tr><td colSpan="12" className="muted">No sessions yet.</td></tr>}
         </tbody>
       </table>
       {open && <SessionDetail id={open} onClose={() => setOpen(null)} />}
@@ -525,7 +539,8 @@ function SimDetail({ id, onClose }) {
     const p = d.persona || {};
     return (
       <div>
-        <h2>Simulation <code className="id">{short(id)}</code> <Pill s={d.status} /></h2>
+        <h2>Simulation <code className="id">{short(id)}</code> <Pill s={d.status} /> <span className="pill src-synth" title="Synthetic silicon-persona run — not a real participant">Synthetic</span></h2>
+        <div className="note synth"><b>Synthetic data</b> — silicon-persona simulation, not real user data.</div>
         <p className="muted">Career: {p.career || '—'} · condition {d.config && d.config.condition} · turns {d.config && d.config.turns} · {fmt(d.created_at)}</p>
         {d.error && <div className="note">{d.error}</div>}
         <div className="panel" style={{ marginTop: 12 }}>
