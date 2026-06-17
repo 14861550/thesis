@@ -1,10 +1,17 @@
 # Thesis — Future-Self Career Chatbot + Study Platform
 
-A no-build React frontend + Express backend that lets university
-students converse with a 10-year **future self**, wrapped in a small **study
-platform**: every session is persisted to Postgres, a gated **admin dashboard**
-manages sessions and exports, and the **evaluation pipeline** (`eval_pipeline/`,
-LLM-judge ↔ human agreement) can be launched, stored, and viewed from the same UI.
+A lightweight React frontend (precompiled, no bundler) + Express backend that
+lets university students converse with a 10-year **future self**, wrapped in a
+small **study platform**: every session is persisted to Postgres, a gated
+**admin dashboard** manages sessions and exports, and the **evaluation pipeline**
+(`eval_pipeline/`, LLM-judge ↔ human agreement) can be launched, stored, and
+viewed from the same UI.
+
+> The frontend source is plain `.jsx` (the source of truth). `npm run build`
+> precompiles it to `build/*.js` and vendors React into `vendor/` — index.html
+> loads those, so there is **no runtime Babel and no CDN** dependency to start.
+> Edit a `.jsx`, then re-run `npm run build` (the committed `build/` is what
+> ships; `npm test` fails if it drifts from source).
 
 Persistence is **additive** — with no `DATABASE_URL` the app runs exactly as
 before (in-memory sessions, JSON download at the end).
@@ -14,7 +21,7 @@ before (in-memory sessions, JSON download at the end).
 ## Architecture
 
 ```
-Browser (no-build React .jsx)                Express (server.js, ESM)
+Browser (precompiled React: build/*.js)      Express (server.js, ESM)
   app/chat/phaseb/survey/screens   ──HTTP──▶  /api/phase-b|c/session, /api/chat   → UvA proxy (gpt-5.1, default) | Anthropic (fallback)
                                               /api/sessions (POST/GET/PATCH)       → Postgres (lib/sessions.js)
   admin/index.html (dashboard)     ──HTTP──▶  /admin (gated), /api/admin/*         → Postgres
@@ -62,9 +69,10 @@ Secrets live only in `.env` (git-ignored). The client never receives
 ## Local development
 
 ```bash
-npm install                 # node deps (incl. pg)
+npm install                 # node deps (incl. pg; React/Babel are devDeps for the build)
 pip install -r eval_pipeline/requirements.txt   # numpy, scipy, matplotlib, scikit-learn
 
+npm run build               # precompile .jsx → build/*.js + vendor React (re-run after editing any .jsx)
 npm run db:up               # start local Postgres (docker compose, host port 5433)
 # .env already points DATABASE_URL at postgresql://postgres:postgres@localhost:5433/thesis
 npm start                   # http://localhost:3000  (schema auto-applies on boot)
