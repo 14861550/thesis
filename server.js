@@ -168,9 +168,9 @@ app.get(['/healthz', '/api/health'], async (req, res) => {
 
 app.post('/api/phase-b/session', async (req, res) => {
   try {
-    // `rec` (reflective | direct | guide) selects the Phase-B prompt (Build Plan
-    // §6). Default = reflective (2026-06-11 decision; guide kept as backup).
-    const { profileData = {}, rec = 'reflective', priorTranscript = [] } = req.body || {};
+    // `rec` (direct | reflective | guide) selects the Phase-B prompt (Build Plan
+    // §6). Default = direct (v5.3 §6; reflective = Andrea; guide = legacy backup).
+    const { profileData = {}, rec = 'direct', priorTranscript = [] } = req.body || {};
     // Resume after a refresh/restart mid-recommendation-chat: replay the saved
     // transcript into a fresh model session (silently — the guide's last message
     // is already on screen) so the conversation continues instead of restarting.

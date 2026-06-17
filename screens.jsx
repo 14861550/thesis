@@ -392,10 +392,10 @@ function ComfortSettings({ tweaks, setTweak }) {
    jump straight in, or open the dashboard. Picking an axis reloads with the new
    query params (which are then locked for the run, exactly like a real link).
    ============================================================ */
-// Default stage-B = reflective (2026-06-11 decision): Kangzhi's two cells share
-// Andrea's reflective stage B; the guide prompt is a backup (rec=guide).
+// Default stage-B = direct (v5.3 §6): Kangzhi's two cells use the direct prompt;
+// reflective is Andrea's other arm; the guide prompt is a legacy backup (rec=guide).
 const INTENDED_COMBOS = {
-  kangzhi: [['reflective', 'main'], ['reflective', 'baseline']],
+  kangzhi: [['direct', 'main'], ['direct', 'baseline']],
   andrea: [['reflective', 'main'], ['direct', 'main']],
 };
 function isIntended(study, rec, cond) {

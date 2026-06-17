@@ -23,11 +23,11 @@ function qp(name) {
 }
 // Two orthogonal axes from the URL (Build Plan §6), locked for the session:
 //   condition / cond ∈ {main, baseline}   → stage-C role-play prompt
-//   rec ∈ {reflective, direct, guide}     → stage-B recommendation prompt
-//     (default = reflective, the working stage-B design; guide is the backup)
+//   rec ∈ {direct, reflective, guide}     → stage-B recommendation prompt
+//     (default = direct per Build Plan v5.3 §6; reflective = Andrea; guide = legacy)
 //   study (analysis tag) + pid (prefixed id, e.g. K017) are recorded only.
 function readCondition() { const c = qp('condition') || qp('cond'); return c === 'baseline' ? 'baseline' : 'main'; }
-function readRec() { const r = qp('rec'); return ['guide', 'reflective', 'direct'].includes(r) ? r : 'reflective'; }
+function readRec() { const r = qp('rec'); return ['guide', 'reflective', 'direct'].includes(r) ? r : 'direct'; }
 function readStudy() { return qp('study') || 'kangzhi'; }
 function readPid() { return qp('pid') || null; }
 function readTestMode() { return qp('test') === '1'; }

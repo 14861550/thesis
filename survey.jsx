@@ -77,10 +77,10 @@ const RIASEC_SCALE = { points: 7, left: 'Not interested', right: 'Extremely inte
 // and of what the "biographical grounding" design component targets; its 14 Jun
 // removal left continuity unmeasured, so it is restored here.
 const FSCS = [
-  { id: 'fscs_similar', text: 'How SIMILAR do you feel to your future self, about 10 years from now?',
-    hint: 'Similar = how alike that future person is to who you are now.' },
-  { id: 'fscs_connected', text: 'How CONNECTED do you feel to your future self, about 10 years from now?',
-    hint: 'Connected = how linked the two of you feel, as one continuous person over time.' },
+  { id: 'fscs_similar', text: 'How alike are you and the future you — the way you act, the things you like, and what matters to you?',
+    hint: 'How alike the two of you are.' },
+  { id: 'fscs_connected', text: "Does the future you feel like the same you, just older — or like a different person you don't really know yet?",
+    hint: "More overlap = feels like one continuous ‘you’." },
 ];
 const VIVIDNESS = [
   { id: 'viv_clear', text: 'I can picture my future self clearly.' },
@@ -105,17 +105,19 @@ const OPEN_ENDED = [
 ];
 
 // Distal outcome — Career indecision: CIP-Short "Lack of Readiness" (LR) subscale
-// (Xu & Tracey, 2017b, Table 4). 5 items, ALL reverse-scored on the original 6-point
-// agreement scale; after reversing, higher = more lack of readiness (lower readiness).
-// Pre AND post; NOT fed to the AI. Replaces the former CDSE-SA + CIP-CCA distal
-// outcomes (17 Jun 2026). Wording is the team's documented verbatim set (Brief
-// Appendix F) — identical to Andrea's LR DV, so the two studies share one instrument.
+// (Xu & Tracey, 2017b). 5 items, ALL reverse-scored on the original 6-point agreement
+// scale; after reversing, higher = greater lack of readiness. Pre AND post; NOT fed to
+// the AI. The single shared career-level distal outcome for Kangzhi (main vs baseline)
+// and Andrea (reflective vs direct); doubles as the open-access proxy for career
+// decision self-efficacy (Build Plan v5.3 §10.1(i)). Item 5 verbatim from Xu & Tracey
+// (2017b); items 1–4 reconstructed from the published descriptions (Brown et al., 2012;
+// Hacker et al., 2013). [pending — optional] confirm the verbatim stems with Hui Xu.
 const CIP_LR_ITEMS = [
-  { id: 'cip_lr_1', text: 'I am confident I can overcome obstacles.', reverse: true },
+  { id: 'cip_lr_1', text: 'I am confident I will be able to overcome obstacles.', reverse: true },
   { id: 'cip_lr_2', text: 'I try to excel at everything.', reverse: true },
-  { id: 'cip_lr_3', text: 'I will be able to find a career.', reverse: true },
-  { id: 'cip_lr_4', text: 'I always work productively.', reverse: true },
-  { id: 'cip_lr_5', text: "I am confident I can find a career I'll perform well in.", reverse: true },
+  { id: 'cip_lr_3', text: 'I will be able to find a career that fits my interests.', reverse: true },
+  { id: 'cip_lr_4', text: 'I work productively to get the job done.', reverse: true },
+  { id: 'cip_lr_5', text: "I am quite confident that I will be able to find a career in which I'll perform well.", reverse: true },
 ];
 const CIP_SCALE = { points: 6, left: 'Completely disagree', right: 'Strongly agree' };
 
@@ -214,8 +216,8 @@ function CirclesField({ id, text, hint, value, onChange }) {
 function IOSField({ id, value, onChange, career }) {
   return (
     <CirclesField id={id} value={value} onChange={onChange}
-      text={`Pick the pair of circles that best shows how CLOSE AND OVERLAPPING you feel with your future self${career ? ` as a ${career}` : ''}.`}
-      hint="Close and overlapping = how much that future person feels part of who you are." />
+      text={`How much does the future you${career ? ` as a ${career}` : ''} already feel like a part of you today?`}
+      hint="Barely-touching circles = not yet; almost-fully-overlapping = already a big part of me." />
   );
 }
 
@@ -368,14 +370,13 @@ function buildPreSections(answers, onChange) {
       node: <LikertGrid items={RIASEC} scale={RIASEC_SCALE} answers={answers} onChange={set} />,
     },
     {
-      // Standalone imagination page (supervisor feedback, 14 Jun 2026): give
-      // people a moment to actually conjure the future self before we ask how
-      // close it feels. No inputs, and skippable — the Continue button is enabled
-      // immediately (the forced 20-second hold was removed 17 Jun 2026 per
-      // researcher request; sit with it as long, or as little, as you like).
+      // Standalone "imagine your future self" page (Build Plan v5.3 §0.0b(c)),
+      // immediately before the future-self mediator block. Non-blocking: offers
+      // both Continue and Skip; nothing here is recorded as an outcome.
       title: 'Picture that future you',
       intro: 'Take a moment for this one — there is nothing to answer here, just a minute to imagine.',
       ids: [],
+      skip: true,
       node: (
         <ImagineSequence
           lines={[
@@ -606,10 +607,13 @@ function PagedSurvey({ sections, answers, onChange, onDone, onBack, eyebrow, sto
           </button>
         ) : <span />}
         <span className="step-label">{page + 1} OF {sections.length}</span>
-        <button className="btn accent" disabled={!complete} onClick={next}>
-          {!heldEnough ? `Take a moment… ${remaining}s` : (isLast ? 'Done' : 'Continue')}
-          <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M3 6.5h7M6.5 3l4 3.5-4 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
-        </button>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          {s.skip && <button className="btn ghost" onClick={next}>Skip</button>}
+          <button className="btn accent" disabled={!complete} onClick={next}>
+            {!heldEnough ? `Take a moment… ${remaining}s` : (isLast ? 'Done' : 'Continue')}
+            <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M3 6.5h7M6.5 3l4 3.5-4 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+          </button>
+        </div>
       </div>
     </div>
   );

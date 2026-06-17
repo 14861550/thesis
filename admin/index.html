@@ -313,7 +313,7 @@ function SessionDetail({ id, onClose }) {
 
 function NewSession({ onClose, onCreated }) {
   const [condition, setCondition] = useState('');
-  const [rec, setRec] = useState('reflective');
+  const [rec, setRec] = useState('direct');
   const [study, setStudy] = useState('kangzhi');
   const [pid, setPid] = useState('');
   const [link, setLink] = useState(null);
@@ -611,8 +611,8 @@ function SimView() {
 // --- Launcher: pick a chatbot version (study cell), batch-mint participant
 // links with sequential PIDs, copy the list, send each link to one participant.
 const LAUNCH_CELLS = [
-  { key: 'k-main', label: 'Kangzhi · reflective × main', study: 'kangzhi', rec: 'reflective', cond: 'main', prefix: 'K' },
-  { key: 'k-base', label: 'Kangzhi · reflective × baseline', study: 'kangzhi', rec: 'reflective', cond: 'baseline', prefix: 'K' },
+  { key: 'k-main', label: 'Kangzhi · direct × main', study: 'kangzhi', rec: 'direct', cond: 'main', prefix: 'K' },
+  { key: 'k-base', label: 'Kangzhi · direct × baseline', study: 'kangzhi', rec: 'direct', cond: 'baseline', prefix: 'K' },
   { key: 'a-refl', label: 'Andrea · reflective × main', study: 'andrea', rec: 'reflective', cond: 'main', prefix: 'A' },
   { key: 'a-dir', label: 'Andrea · direct × main', study: 'andrea', rec: 'direct', cond: 'main', prefix: 'A' },
   { key: 'custom', label: 'Custom combination', custom: true, prefix: 'X' },
@@ -626,7 +626,7 @@ const writeBatches = (b) => { try { localStorage.setItem(BATCH_KEY, JSON.stringi
 
 function RecruitView() {
   const [cellKey, setCellKey] = useState('k-main');
-  const [custom, setCustom] = useState({ study: 'kangzhi', rec: 'reflective', cond: 'main' });
+  const [custom, setCustom] = useState({ study: 'kangzhi', rec: 'direct', cond: 'main' });
   const [count, setCount] = useState(5);
   const [prefix, setPrefix] = useState('K');
   const [start, setStart] = useState(1);

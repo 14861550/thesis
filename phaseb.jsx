@@ -12,7 +12,7 @@ const PB_FAMILIARITY = { points: 7, left: 'Not at all familiar', right: 'Very fa
 const PB_INTEREST = { points: 7, left: 'Not at all', right: 'Very strong' };
 const PB_REST_MIN = 20; // recurring rest hint cadence in stage B (§7 Screen 3)
 
-function PhaseB({ profileData, rec = 'reflective', seedTranscript = [], onDone, onBack, onAutosave }) {
+function PhaseB({ profileData, rec = 'direct', seedTranscript = [], onDone, onBack, onAutosave }) {
   const { useState, useEffect, useRef } = React;
   const [messages, setMessages] = useState([]);
   const [booting, setBooting] = useState(true);
