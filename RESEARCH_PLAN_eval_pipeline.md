@@ -161,7 +161,7 @@ profile: {age, gender, year, bigFive{O,C,E,A,N}, riasec{R,I,A,S,E,C}, values[]},
 career,
 transcript: [{role, text, ts}],            # full Phase-C dialogue, ordered
 human_ratings: {
-   continuity: {fscs_similar, fscs_connected, fscs_care}      # 7-pt
+   continuity: {fscs_similar, fscs_connected}                 # 7-pt
    vividness:  {viv_clear, viv_tangible, viv_detail, viv_felt} # 7-pt
    persuasiveness: {<Thy's exact items + wording + scale>}     # REQUIRED from Thy
    (optional) baseline: {pre-FSCS, pre-vividness}              # for D3 only

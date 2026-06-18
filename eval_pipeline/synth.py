@@ -154,7 +154,6 @@ class SyntheticGenerator:
         # Decompose pre into items
         fscs_similar = _clip_scale(cont_pre + rng.normal(0, 0.3))
         fscs_connected = _clip_scale(cont_pre + rng.normal(0, 0.3))
-        fscs_care = _clip_scale(cont_pre + rng.normal(0, 0.3))
 
         viv_clear = _clip_scale(viv_pre + rng.normal(0, 0.3))
         viv_tangible = _clip_scale(viv_pre + rng.normal(0, 0.3))
@@ -177,7 +176,6 @@ class SyntheticGenerator:
         # Post item decomposition
         fscs_similar_post = _clip_scale(cont_post + rng.normal(0, 0.3))
         fscs_connected_post = _clip_scale(cont_post + rng.normal(0, 0.3))
-        fscs_care_post = _clip_scale(cont_post + rng.normal(0, 0.3))
         viv_clear_post = _clip_scale(viv_post + rng.normal(0, 0.3))
         viv_tangible_post = _clip_scale(viv_post + rng.normal(0, 0.3))
         viv_detail_post = _clip_scale(viv_post + rng.normal(0, 0.3))
@@ -273,7 +271,6 @@ class SyntheticGenerator:
                 "ios_pre": float(round(ios_pre, 1)),
                 "fscs_similar": float(round(fscs_similar, 1)),
                 "fscs_connected": float(round(fscs_connected, 1)),
-                "fscs_care": float(round(fscs_care, 1)),
                 "viv_clear": float(round(viv_clear, 1)),
                 "viv_tangible": float(round(viv_tangible, 1)),
                 "viv_detail": float(round(viv_detail, 1)),
@@ -312,7 +309,6 @@ class SyntheticGenerator:
                 "ios_post": float(round(ios_post, 1)),
                 "fscs_similar_post": float(round(fscs_similar_post, 1)),
                 "fscs_connected_post": float(round(fscs_connected_post, 1)),
-                "fscs_care_post": float(round(fscs_care_post, 1)),
                 "viv_clear_post": float(round(viv_clear_post, 1)),
                 "viv_tangible_post": float(round(viv_tangible_post, 1)),
                 "viv_detail_post": float(round(viv_detail_post, 1)),

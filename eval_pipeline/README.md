@@ -124,7 +124,7 @@ All metrics have bootstrap 95% CIs (percentile method, n_boot=1000).
 
 ## Outcome instruments
 
-- **Continuity (FSCS)**: mean of fscs_similar_post, fscs_connected_post, fscs_care_post (1–7)
+- **Continuity (FSCS)**: mean of fscs_similar_post, fscs_connected_post (1–7)
 - **Vividness**: mean of viv_clear_post, viv_tangible_post, viv_detail_post, viv_felt_post (1–7)
 - **Closeness (IOS)**: ios_post (1–7 single item)
 - **Manipulation checks**: mean of mc_style, mc_scene, mc_understand (1–7) — transcript-observable

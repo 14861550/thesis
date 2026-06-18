@@ -22,7 +22,7 @@ def sample_session():
     pre = s["preSurvey"]
     import numpy as np
     s["outcomes_pre"] = {
-        "continuity": float(np.mean([pre.get("fscs_similar", 4), pre.get("fscs_connected", 4), pre.get("fscs_care", 4)])),
+        "continuity": float(np.mean([pre.get("fscs_similar", 4), pre.get("fscs_connected", 4)])),
         "vividness": float(np.mean([pre.get("viv_clear", 4), pre.get("viv_tangible", 4), pre.get("viv_detail", 4), pre.get("viv_felt", 4)])),
         "closeness": pre.get("ios_pre", 4.0),
         "manip_checks": None,
