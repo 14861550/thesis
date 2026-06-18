@@ -21,3 +21,20 @@ jobs:
       - run: npm test
       # Confirm the production build still runs end to end.
       - run: npm run build
+
+  # Guards the Python eval pipeline. Without this, drift between the fielded
+  # survey instruments and the pipeline's schema/loader/synth (e.g. an item the
+  # app dropped but the pipeline still expected) ships unnoticed — `npm test`
+  # does not exercise any Python. Runs fully offline: the real-LLM judge is a
+  # runtime concern, not a unit-test one, so no API keys are needed.
+  pytest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: eval_pipeline/requirements.txt
+      - run: pip install -r eval_pipeline/requirements.txt pytest
+      - run: python -m pytest eval_pipeline/tests/ -q
