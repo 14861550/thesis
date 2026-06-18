@@ -120,7 +120,7 @@ const CIP_ANXIETY_IDS = ['cip_ca_1', 'cip_ca_2', 'cip_ca_3'];
 const CIP_CONFIDENCE_IDS = ['cip_cf_1', 'cip_cf_2', 'cip_cf_3'];
 const CIP_ITEMS = [
   { id: 'cip_cf_1', text: 'I am confident that I will be able to find a career.' },
-  { id: 'cip_ca_1', text: "I can't commit to a career because I don't know what my other options are." },
+  { id: 'cip_ca_1', text: "I can't commit to a career direction." },
   { id: 'cip_cf_3', text: 'I am confident that I can overcome obstacles in pursuing my career.' },
   { id: 'cip_ca_2', text: 'I am concerned that my career goals might change.' },
   { id: 'cip_cf_2', text: "I am quite confident that I will be able to find a career in which I'll perform well." },

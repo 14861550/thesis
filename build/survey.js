@@ -169,7 +169,7 @@ const CIP_ITEMS = [{
   text: 'I am confident that I will be able to find a career.'
 }, {
   id: 'cip_ca_1',
-  text: "I can't commit to a career because I don't know what my other options are."
+  text: "I can't commit to a career direction."
 }, {
   id: 'cip_cf_3',
   text: 'I am confident that I can overcome obstacles in pursuing my career.'

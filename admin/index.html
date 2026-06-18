@@ -238,6 +238,21 @@ function resumeUrl(r) {
   return location.origin + '/?' + q.toString();
 }
 
+// The participant-facing RECRUIT link (start fresh through landing → consent).
+// Unlike the resume link it has NO resume=1, so a new participant goes through
+// consent and adopts this session id. It is derived entirely from the persisted
+// session row (id + cond/rec/study/pid), so EVERY admin can copy the exact same
+// link from the shared Sessions list — not only whoever first minted it. Mirrors
+// the link the create endpoint returns (lib/admin_routes.js).
+function recruitUrl(r) {
+  const q = new URLSearchParams({ session: r.id });
+  if (r.condition) q.set('cond', r.condition);
+  if (r.rec) q.set('rec', r.rec);
+  if (r.study) q.set('study', r.study);
+  if (r.pid) q.set('pid', r.pid);
+  return location.origin + '/?' + q.toString();
+}
+
 function SessionDetail({ id, onClose }) {
   const [d, setD] = useState(null);
   const [err, setErr] = useState(null);
@@ -267,7 +282,12 @@ function SessionDetail({ id, onClose }) {
         {meta.pid
           ? <div className="note real"><b>Real participant data</b> — recruited via a generated link. Version: study=<b>{meta.study || '—'}</b> · rec=<b>{meta.rec || '—'}</b> · cond=<b>{d.condition || '—'}</b> · link #<b>{meta.pid}</b></div>
           : <div className="note"><b>Ad-hoc / test session</b> — no participant link (PID). Version: study=<b>{meta.study || '—'}</b> · rec=<b>{meta.rec || '—'}</b> · cond=<b>{d.condition || '—'}</b></div>}
+        {/* Participant recruit link — shown to EVERY admin (derived from the
+            shared row), so a teammate can copy the link someone else minted. */}
+        <div className="muted" style={{ fontSize: 12, margin: '0 0 4px' }}>Participant recruit link (start fresh through consent):</div>
+        <div className="link-box" style={{ marginBottom: 8 }}>{recruitUrl({ id, condition: d.condition, rec: meta.rec, study: meta.study, pid: meta.pid })}</div>
         <div className="row" style={{ marginBottom: 16 }}>
+          <button className="btn pri" onClick={() => navigator.clipboard.writeText(recruitUrl({ id, condition: d.condition, rec: meta.rec, study: meta.study, pid: meta.pid }))}>Copy recruit link</button>
           <a className="btn" href={resumeUrl({ id, condition: d.condition, rec: meta.rec, study: meta.study, pid: meta.pid })} target="_blank" rel="noreferrer">Resume session ↗</a>
           <button className="btn" onClick={() => navigator.clipboard.writeText(resumeUrl({ id, condition: d.condition, rec: meta.rec, study: meta.study, pid: meta.pid }))}>Copy resume link</button>
           <button className="btn" onClick={downloadJson}>Download JSON</button>
@@ -363,6 +383,7 @@ function NewSession({ onClose, onCreated }) {
             <p>{link.study} · rec <b>{link.rec}</b> · cond <b>{link.condition}</b> · id <code className="id">{short(link.id)}</code></p>
             <div className="link-box">{link.link}</div>
             <button className="btn" style={{ marginTop: 10 }} onClick={() => navigator.clipboard.writeText(link.link)}>Copy link</button>
+            <p className="muted" style={{ marginTop: 10, fontSize: 12 }}>Saved to the shared sessions list — any teammate can find this row and copy the same link (Sessions → <b>Copy link</b>, or open it for the full recruit link).</p>
           </div>
         )}
       </div>
@@ -421,6 +442,8 @@ function SessionsView() {
               <td className="muted">{fmt(r.completed_at)}</td>
               <td className="row">
                 <button className="btn" onClick={() => setOpen(r.id)}>Open</button>
+                <button className="btn" onClick={() => navigator.clipboard.writeText(recruitUrl(r))}
+                  title="Copy the participant recruit link (start fresh through consent). Saved on the shared row, so anyone on the team can copy it.">Copy link</button>
                 <a className="btn" href={resumeUrl(r)} target="_blank" rel="noreferrer"
                   title="Continue this run where it stopped (works on any device; the future self keeps its memory)">Resume ↗</a>
                 <button className="btn danger" onClick={() => del(r.id)}>Delete</button>

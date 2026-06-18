@@ -50,13 +50,9 @@ function Landing({
   }))), React.createElement("button", {
     className: "btn ghost lg",
     onClick: () => setShowHow(true)
-  }, "How it works")), React.createElement("div", {
-    className: "hero-foot"
-  }, React.createElement("span", {
-    className: "pill"
-  }, "A conversation with your future self")), React.createElement("p", {
+  }, "How it works")), React.createElement("p", {
     className: "hero-time"
-  }, "A short questionnaire (~10 min) \xB7 choosing a career to step into (~10\u201315 min) \xB7 the conversation itself (20\u201330 min, you decide) \u2014 about an hour in all.", React.createElement("br", null), "Breaks are built in between parts, and you can pause or close the page at any point \u2014 ", React.createElement("strong", null, "your progress is saved and you can continue where you left off."))), showHow && React.createElement("div", {
+  }, "A short questionnaire (~10 min) \xB7 choosing a career to step into (~2\u20133 min) \xB7 the conversation itself (20\u201330 min, you decide) \u2014 about 40 minutes in all.", React.createElement("br", null), "Breaks are built in between parts, and you can pause or close the page at any point \u2014 ", React.createElement("strong", null, "your progress is saved and you can continue where you left off."))), showHow && React.createElement("div", {
     className: "how-overlay",
     onClick: () => setShowHow(false),
     role: "dialog",
@@ -80,7 +76,7 @@ function Landing({
     className: "step"
   }, React.createElement("span", {
     className: "num"
-  }, "STEP 02 \xB7 ~10\u201315 MIN"), React.createElement("h3", null, "Choose a future"), React.createElement("p", null, "We surface a handful of careers worth exploring. You pick the one you're most curious to step into \u2014 and you can switch later.")), React.createElement("div", {
+  }, "STEP 02 \xB7 ~2\u20133 MIN"), React.createElement("h3", null, "Choose a future"), React.createElement("p", null, "We surface a handful of careers worth exploring. You pick the one you're most curious to step into \u2014 and you can switch later.")), React.createElement("div", {
     className: "step"
   }, React.createElement("span", {
     className: "num"
@@ -305,7 +301,7 @@ function Consent({
     className: "consent-title"
   }, "Informed consent"), React.createElement("div", {
     className: "consent-body"
-  }, React.createElement("p", null, "This is a research prototype from a BSc Business Analytics thesis at the University of Amsterdam. You'll fill in a short questionnaire, have a guided conversation to choose a career, then talk with an AI role-playing your future self in that career. Afterwards you'll answer a few reflection questions. The whole session takes about 50\u201360 minutes, is completed unsupervised on your own device, and your responses are stored on a secure cloud server."), React.createElement("ul", null, React.createElement("li", null, "Participation is ", React.createElement("strong", null, "voluntary"), "; you may stop at any time without giving a reason."), React.createElement("li", null, "Your questionnaire answers and the conversation are processed to run the study and may be analysed in anonymised form."), React.createElement("li", null, "The AI is a ", React.createElement("strong", null, "role-play"), " \u2014 one imagined version of a possible future, not a prediction or professional advice. The decision about your future stays yours."), React.createElement("li", null, "No special-category personal data is required. Please don't share anything you'd prefer to keep private.")), React.createElement("p", null, "For questions, contact the research team via the thesis supervisor at the UvA.")), React.createElement("label", {
+  }, React.createElement("p", null, "This is a research prototype from a BSc Business Analytics thesis at the University of Amsterdam. You'll fill in a short questionnaire, have a guided conversation to choose a career, then talk with an AI role-playing your future self in that career. Afterwards you'll answer a few reflection questions. The whole session takes about 40\u201350 minutes, is completed unsupervised on your own device, and your responses are stored on a secure cloud server."), React.createElement("ul", null, React.createElement("li", null, "Participation is ", React.createElement("strong", null, "voluntary"), "; you may stop at any time without giving a reason."), React.createElement("li", null, "Your questionnaire answers and the conversation are processed to run the study and may be analysed in anonymised form."), React.createElement("li", null, "The AI is a ", React.createElement("strong", null, "role-play"), " \u2014 one imagined version of a possible future, not a prediction or professional advice. The decision about your future stays yours."), React.createElement("li", null, "No special-category personal data is required. Please don't share anything you'd prefer to keep private.")), React.createElement("p", null, "For questions, contact the research team via the thesis supervisor at the UvA.")), React.createElement("label", {
     className: "consent-check"
   }, React.createElement("input", {
     type: "checkbox",

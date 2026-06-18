@@ -35,13 +35,10 @@ function Landing({ onBegin }) {
           </button>
           <button className="btn ghost lg" onClick={() => setShowHow(true)}>How it works</button>
         </div>
-        <div className="hero-foot">
-          <span className="pill">A conversation with your future self</span>
-        </div>
         {/* Time framing (§11 fatigue): stages first, total second, and the
             reassurance that pausing/leaving doesn't lose anything. */}
         <p className="hero-time">
-          A short questionnaire (~10 min) · choosing a career to step into (~10–15 min) · the conversation itself (20–30 min, you decide) — about an hour in all.
+          A short questionnaire (~10 min) · choosing a career to step into (~2–3 min) · the conversation itself (20–30 min, you decide) — about 40 minutes in all.
           <br/>Breaks are built in between parts, and you can pause or close the page at any point — <strong>your progress is saved and you can continue where you left off.</strong>
         </p>
       </section>
@@ -63,7 +60,7 @@ function Landing({ onBegin }) {
                   you are in your studies. This grounds the future self in who you actually are.</p>
               </div>
               <div className="step">
-                <span className="num">STEP 02 · ~10–15 MIN</span>
+                <span className="num">STEP 02 · ~2–3 MIN</span>
                 <h3>Choose a future</h3>
                 <p>We surface a handful of careers worth exploring. You pick the one you're
                   most curious to step into — and you can switch later.</p>
@@ -260,7 +257,7 @@ function Consent({ onAgree, onBack }) {
           <div className="eyebrow"><span className="dot" />Before we begin</div>
           <h2 className="consent-title">Informed consent</h2>
           <div className="consent-body">
-            <p>This is a research prototype from a BSc Business Analytics thesis at the University of Amsterdam. You'll fill in a short questionnaire, have a guided conversation to choose a career, then talk with an AI role-playing your future self in that career. Afterwards you'll answer a few reflection questions. The whole session takes about 50–60 minutes, is completed unsupervised on your own device, and your responses are stored on a secure cloud server.</p>
+            <p>This is a research prototype from a BSc Business Analytics thesis at the University of Amsterdam. You'll fill in a short questionnaire, have a guided conversation to choose a career, then talk with an AI role-playing your future self in that career. Afterwards you'll answer a few reflection questions. The whole session takes about 40–50 minutes, is completed unsupervised on your own device, and your responses are stored on a secure cloud server.</p>
             <ul>
               <li>Participation is <strong>voluntary</strong>; you may stop at any time without giving a reason.</li>
               <li>Your questionnaire answers and the conversation are processed to run the study and may be analysed in anonymised form.</li>
