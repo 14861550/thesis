@@ -443,6 +443,28 @@ function buildPostSections(answers, onChange, career) {
   const vivPost = VIVIDNESS.map((i) => ({ ...i, id: i.id + '_post' }));
   return [
     {
+      // Post-conversation mirror of the pre-survey "Picture that future you"
+      // page (added 18 Jun 2026): the pre future-self measure was primed by a
+      // structured imagination, so the post measure gets a parallel one —
+      // otherwise the pre/post ratings would differ in measurement context, not
+      // only in the conversation that happened between them. Worded for *after*
+      // the role-play (they have now met this person), and non-blocking
+      // (Continue + Skip) like the pre page; nothing here is recorded.
+      title: 'Picture that future you, once more',
+      intro: 'Before the last questions, take one more moment with your future self — the person you have just been speaking with, about 10 years from now. There is nothing to answer here, just a minute to picture them again.',
+      ids: [],
+      skip: true,
+      node: (
+        <ImagineSequence
+          lines={[
+            "Bring that future self back to mind — the same person you just spoke with, on an ordinary weekday about ten years from now. Picture them waking up: where are they, what does the light in the room feel like, what is already on their mind before the day has properly started?",
+            "Now picture the work you talked about together. What is in front of them this morning? Who is around — people they work with, people they are helping, someone they are still learning from? Sit for a second with what it feels like to be that person, genuinely good at something they spent years growing into.",
+            "It is evening now, the day behind them. Where are they, who are they with, and how do they feel as it winds down?",
+          ]}
+          closing="Stay with that person for a moment. The next questions are about them." />
+      ),
+    },
+    {
       title: 'And now — how close is your future self?',
       intro: 'After the conversation, how close does that future you (about 10 years from now) feel to who you are today?',
       ids: ['ios_post'],
@@ -529,11 +551,12 @@ function buildPostSections(answers, onChange, career) {
 
 // --- Paged survey container ------------------------------------------------
 
-// v4: bumped whenever the pre/post page set changes (17 Jun 2026: dropped
-// Andrea's reflective-vs-direct manipulation-check page — she confirmed it is
-// no longer needed, so the post page set is identical across all study tags)
-// so stale saved page indices reset.
-const SVPAGE_KEY = 'thesis_svpage_v4';
+// v5: bumped whenever the pre/post page set changes (18 Jun 2026: added a
+// post-conversation "Picture that future you, once more" page to mirror the
+// pre-survey imagination prime; earlier — 17 Jun 2026 — dropped Andrea's
+// reflective-vs-direct manipulation-check page) so stale saved page indices
+// reset rather than landing the participant on the wrong page after a refresh.
+const SVPAGE_KEY = 'thesis_svpage_v5';
 const readSvPage = (k) => {
   try { return Number(JSON.parse(localStorage.getItem(SVPAGE_KEY) || '{}')[k]) || 0; } catch (e) { return 0; }
 };

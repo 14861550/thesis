@@ -450,3 +450,21 @@ verbatim-wording confirmation before fielding. (commit `2f4beac`.)
   scoring exports now `scoreCipLR` + `scoreFSCS` (CDSE/CIP removed); `app.jsx` score
   payloads carry `cipLR_pre/post`; `flow_test` drops `dayinlife.jsx`. `npm test`
   (flow / recs / reconstruct) green.
+
+## Round 11 (2026-06-18) — post-conversation imagination prime (Kangzhi)
+
+- **§7 / §10 Post-survey "Picture that future you, once more" page ADDED** [ON MAIN]:
+  the post-survey now opens with a structured-imagination page that mirrors the
+  pre-survey "Picture that future you" prime, immediately before the post future-self
+  measures (IOS / FSCS / vividness). Rationale: the **pre** future-self measures were
+  primed by a structured imagination but the **post** measures were not, so pre vs post
+  ratings differed in measurement context, not only in the role-play between them — a
+  measurement confound on all three mediators. This also makes the Round-9 change-record
+  line ("precedes each IOS closeness question, pre & post") true; it had only ever been
+  implemented on the pre side. Copy is reworded for *after* the role-play ("the person
+  you have just been speaking with", "the work you talked about together") and the page
+  is non-blocking (Continue + Skip, no hold gate, no Back into the role-play); nothing on
+  it is recorded. `survey.jsx buildPostSections`; survey storage key bumped
+  `thesis_svpage_v4 → v5` (stale saved page indices reset). Post-survey is now 8 pages
+  (was 7), uniform across all study tags. `npm test` green; full-flow screenshot sweep
+  re-run with 0 page errors.

@@ -562,6 +562,15 @@ function buildPostSections(answers, onChange, career) {
     id: i.id + '_post'
   }));
   return [{
+    title: 'Picture that future you, once more',
+    intro: 'Before the last questions, take one more moment with your future self — the person you have just been speaking with, about 10 years from now. There is nothing to answer here, just a minute to picture them again.',
+    ids: [],
+    skip: true,
+    node: React.createElement(ImagineSequence, {
+      lines: ["Bring that future self back to mind — the same person you just spoke with, on an ordinary weekday about ten years from now. Picture them waking up: where are they, what does the light in the room feel like, what is already on their mind before the day has properly started?", "Now picture the work you talked about together. What is in front of them this morning? Who is around — people they work with, people they are helping, someone they are still learning from? Sit for a second with what it feels like to be that person, genuinely good at something they spent years growing into.", "It is evening now, the day behind them. Where are they, who are they with, and how do they feel as it winds down?"],
+      closing: "Stay with that person for a moment. The next questions are about them."
+    })
+  }, {
     title: 'And now — how close is your future self?',
     intro: 'After the conversation, how close does that future you (about 10 years from now) feel to who you are today?',
     ids: ['ios_post'],
@@ -664,7 +673,7 @@ function buildPostSections(answers, onChange, career) {
     }, "thy.le@student.uva.nl"), " and we'll arrange a time."))
   }];
 }
-const SVPAGE_KEY = 'thesis_svpage_v4';
+const SVPAGE_KEY = 'thesis_svpage_v5';
 const readSvPage = k => {
   try {
     return Number(JSON.parse(localStorage.getItem(SVPAGE_KEY) || '{}')[k]) || 0;
