@@ -654,12 +654,6 @@ const LAUNCH_CELLS = [
   { key: 'custom', label: 'Custom combination', custom: true, prefix: 'X' },
 ];
 
-// Generated batches survive tab switches and reloads (they used to vanish the
-// moment the view unmounted).
-const BATCH_KEY = 'admin_recruit_batches_v1';
-const readBatches = () => { try { return JSON.parse(localStorage.getItem(BATCH_KEY) || '[]'); } catch (e) { return []; } };
-const writeBatches = (b) => { try { localStorage.setItem(BATCH_KEY, JSON.stringify(b.slice(0, 30))); } catch (e) {} };
-
 function RecruitView() {
   const [cellKey, setCellKey] = useState('shared');
   const [custom, setCustom] = useState({ study: 'kangzhi', rec: 'direct', cond: 'main' });
@@ -667,42 +661,60 @@ function RecruitView() {
   const [prefix, setPrefix] = useState('S');
   const [start, setStart] = useState(1);
   const [busy, setBusy] = useState(false);
-  const [batches, setBatches] = useState(readBatches);
+  const [rows, setRows] = useState([]);       // ALL sessions, from the shared DB
+  const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(null);
   const [err, setErr] = useState(null);
   const cell = LAUNCH_CELLS.find((c) => c.key === cellKey);
   const axes = cell.custom ? custom : cell;
-  const pick = (c) => { setCellKey(c.key); setPrefix(c.prefix); setCopied(null); };
+  // Next free PID number for a prefix, computed from the SHARED rows — so two
+  // teammates minting links never collide on the same participant ID.
+  const nextStartFor = (rws, pfx) => {
+    const p = (pfx || '').trim().toUpperCase();
+    if (!p) return 1;
+    const nums = rws.filter((r) => r.pid && r.pid.toUpperCase().startsWith(p))
+      .map((r) => parseInt(r.pid.slice(p.length), 10)).filter((n) => !Number.isNaN(n));
+    return nums.length ? Math.max(...nums) + 1 : 1;
+  };
+  const load = () => api('/api/admin/sessions')
+    .then((rws) => { setRows(rws); setStart(nextStartFor(rws, prefix)); setLoading(false); })
+    .catch((e) => { setErr(e.message); setLoading(false); });
+  useEffect(() => { load(); }, []); // once, on mount
+  const pick = (c) => { setCellKey(c.key); setPrefix(c.prefix); setStart(nextStartFor(rows, c.prefix)); setCopied(null); };
   const previewUrl = () => {
     const q = new URLSearchParams({ cond: axes.cond, rec: axes.rec, study: axes.study, preview: '1' });
     return location.origin + '/?' + q.toString();
   };
   const generate = async () => {
     setBusy(true); setErr(null); setCopied(null);
-    const lines = [];
     try {
       const n = Math.max(1, Math.min(50, Number(count) || 1));
       for (let i = 0; i < n; i++) {
         const pid = prefix.trim() ? prefix.trim().toUpperCase() + String(Number(start) + i).padStart(3, '0') : undefined;
-        const d = await api('/api/admin/sessions', { method: 'POST', body: JSON.stringify({
+        await api('/api/admin/sessions', { method: 'POST', body: JSON.stringify({
           condition: axes.cond, rec: axes.rec, study: axes.study, pid,
         }) });
-        lines.push({ pid: pid || short(d.id), link: location.origin + d.link });
       }
-      const batch = { ts: new Date().toISOString(), label: `${axes.study} · ${axes.rec} × ${axes.cond}`, lines };
-      const next = [batch, ...batches];
-      setBatches(next); writeBatches(next);
-      if (prefix.trim()) setStart(Number(start) + lines.length);
+      await load(); // re-pull the shared list so the new links show for EVERYONE
     } catch (e) { setErr(e.message); }
     finally { setBusy(false); }
   };
-  const copyBatch = (i) => {
-    navigator.clipboard.writeText(batches[i].lines.map((l) => l.pid + '\t' + l.link).join('\n'));
-    setCopied(i);
-  };
-  const removeBatch = (i) => {
-    const next = batches.filter((_, j) => j !== i);
-    setBatches(next); writeBatches(next);
+  // Build display groups from the SHARED rows: recruited links (those with a
+  // PID), grouped by version cell, newest group first, links sorted by PID.
+  const groupMap = {};
+  for (const r of rows) {
+    if (!r.pid) continue;
+    const label = `${r.study || '—'} · ${r.rec || '—'} × ${r.condition || '—'}`;
+    (groupMap[label] = groupMap[label] || []).push({ pid: r.pid, link: recruitUrl(r), created: r.created_at || '' });
+  }
+  const groups = Object.entries(groupMap).map(([label, links]) => {
+    links.sort((a, b) => String(a.pid).localeCompare(String(b.pid), undefined, { numeric: true }));
+    const latest = links.reduce((m, l) => (l.created > m ? l.created : m), '');
+    return { label, links, latest };
+  }).sort((a, b) => (a.latest < b.latest ? 1 : -1));
+  const copyGroup = (label, links) => {
+    navigator.clipboard.writeText(links.map((l) => l.pid + '\t' + l.link).join('\n'));
+    setCopied(label);
   };
   return (
     <div>
@@ -710,7 +722,8 @@ function RecruitView() {
         <b>Recruit participants</b> — pick the chatbot version (study cell), mint as many personal links
         as you need, and send <b>one link to one participant</b>. Each link locks its condition and carries
         a sequential participant ID; the session row appears under Sessions the moment they consent.
-        Generated batches stay here (stored in this browser) until you remove them.
+        <b> Every generated link is saved on the server, so the whole team sees the same list below</b> — and
+        the next PID number is taken from everyone's links, so two of you can recruit at once without clashing.
       </div>
       <div className="panel" style={{ marginBottom: 16 }}>
         <h3>1 · Chatbot version</h3>
@@ -746,24 +759,26 @@ function RecruitView() {
           <label>PID prefix <input type="text" value={prefix} onChange={(e) => setPrefix(e.target.value)} style={{ width: 56 }} /></label>
           <label>from # <input type="number" min="1" value={start} onChange={(e) => setStart(e.target.value)} style={{ width: 72 }} /></label>
           <button className="btn pri" disabled={busy} onClick={generate}>{busy ? 'Generating…' : 'Generate links'}</button>
+          <button className="btn" disabled={loading || busy} onClick={load} title="Re-pull the shared list">↻ Refresh</button>
           {err && <span className="err-inline">{err}</span>}
         </div>
       </div>
-      {batches.map((b, i) => (
-        <div className="panel" style={{ marginBottom: 14 }} key={b.ts}>
-          <h3>{b.lines.length} link{b.lines.length > 1 ? 's' : ''} · {b.label} · {fmt(b.ts)}</h3>
-          <div className="row" style={{ marginBottom: 10 }}>
-            <button className="btn" onClick={() => copyBatch(i)}>{copied === i ? 'Copied ✓' : 'Copy all (PID + link)'}</button>
-            <button className="btn danger" onClick={() => removeBatch(i)}>Remove from this list</button>
+      {loading ? <p className="muted">Loading the team's generated links…</p>
+        : !groups.length ? <p className="muted">No participant links generated yet.</p>
+        : groups.map((g) => (
+          <div className="panel" style={{ marginBottom: 14 }} key={g.label}>
+            <h3>{g.links.length} link{g.links.length > 1 ? 's' : ''} · {g.label}{g.latest ? ' · latest ' + fmt(g.latest) : ''}</h3>
+            <div className="row" style={{ marginBottom: 10 }}>
+              <button className="btn" onClick={() => copyGroup(g.label, g.links)}>{copied === g.label ? 'Copied ✓' : 'Copy all (PID + link)'}</button>
+            </div>
+            <div className="kv kv-scroll" style={{ gridTemplateColumns: 'max-content 1fr', maxHeight: 320 }}>
+              {g.links.map((l) => [
+                <b key={l.pid + 'k'}>{l.pid}</b>,
+                <span key={l.pid + 'v'}><a href={l.link} target="_blank" rel="noreferrer">{l.link}</a></span>,
+              ])}
+            </div>
           </div>
-          <div className="kv kv-scroll" style={{ gridTemplateColumns: 'max-content 1fr', maxHeight: 320 }}>
-            {b.lines.map((l) => [
-              <b key={l.pid + 'k'}>{l.pid}</b>,
-              <span key={l.pid + 'v'}><a href={l.link} target="_blank" rel="noreferrer">{l.link}</a></span>,
-            ])}
-          </div>
-        </div>
-      ))}
+        ))}
     </div>
   );
 }
