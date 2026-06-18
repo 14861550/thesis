@@ -262,7 +262,10 @@ function App() {
   const restart = () => {
     try {
       localStorage.removeItem(PROGRESS_KEY);
-      localStorage.removeItem('thesis_svpage_v4');
+      for (let i = localStorage.length - 1; i >= 0; i--) {
+        const k = localStorage.key(i);
+        if (k && k.indexOf('thesis_svpage') === 0) localStorage.removeItem(k);
+      }
     } catch (e) {}
     studyId.current = null;
     setProfile({

@@ -242,7 +242,17 @@ function App() {
     : baseProfile;
 
   const restart = () => {
-    try { localStorage.removeItem(PROGRESS_KEY); localStorage.removeItem('thesis_svpage_v4'); } catch (e) {}
+    try {
+      localStorage.removeItem(PROGRESS_KEY);
+      // Sweep any versioned survey page-index key (survey.jsx owns SVPAGE_KEY
+      // and bumps its version when the page set changes). Sweeping by prefix
+      // means a bump there can never strand a stale index here — which would
+      // otherwise drop a freshly-restarted run partway into the survey.
+      for (let i = localStorage.length - 1; i >= 0; i--) {
+        const k = localStorage.key(i);
+        if (k && k.indexOf('thesis_svpage') === 0) localStorage.removeItem(k);
+      }
+    } catch (e) {}
     studyId.current = null; // a fresh session row is created at the next consent (§15)
     setProfile({ name: '', color: tweaks.accent });
     setPreAnswers({}); setPhaseB(null); setPhaseC(null); setPostAnswers({});
