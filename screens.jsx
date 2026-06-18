@@ -42,7 +42,7 @@ function Landing({ onBegin }) {
             reassurance that pausing/leaving doesn't lose anything. */}
         <p className="hero-time">
           A short questionnaire (~10 min) · choosing a career to step into (~10–15 min) · the conversation itself (20–30 min, you decide) — about an hour in all.
-          <br/>Breaks are built in between parts, and you can pause or close the page at any point — your progress is saved and you continue where you left off.
+          <br/>Breaks are built in between parts, and you can pause or close the page at any point — <strong>your progress is saved and you can continue where you left off.</strong>
         </p>
       </section>
 
