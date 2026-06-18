@@ -15,6 +15,16 @@ const row = {
   phase_b: { career: 'Data analyst', transcript: [{ role: 'user', text: 'hi maya@x.com' }] },
   phase_c: { turnCount: 2, transcript: [{ role: 'future', text: 'reach me at a@b.co' }] },
   post_survey: { fscs_similar_post: 5, oe_real: 'email me x@y.com', contact: 'secret@example.com', interview: 'Yes' },
+  // post-study free chat + a career exploration, both recorded and exported —
+  // emails typed here must be redacted just like the main-phase transcripts.
+  free_continuation: {
+    transcript: [{ role: 'user', text: 'ping me free@cont.com' }],
+    explorations: [{
+      career: 'Nurse',
+      phaseBTranscript: [{ role: 'user', text: 'reach pb@exp.com' }],
+      transcript: [{ role: 'user', text: 'or exp@chat.com' }],
+    }],
+  },
 };
 
 const study = reconstructStudy(row);
@@ -30,6 +40,10 @@ const deid = deidentifyStudy(study);
 assert.ok(!('contact' in deid.postSurvey), 'contact must be stripped');
 assert.ok(!/@/.test(deid.postSurvey.oe_real), 'emails redacted in open-ended');
 assert.ok(!/@/.test(deid.phaseC.transcript[0].text), 'emails redacted in transcript');
+// free continuation + explorations are exported too, so they must be scrubbed
+assert.ok(!/@/.test(deid.freeContinuation.transcript[0].text), 'emails redacted in free-continuation chat');
+assert.ok(!/@/.test(deid.freeContinuation.explorations[0].transcript[0].text), 'emails redacted in exploration chat');
+assert.ok(!/@/.test(deid.freeContinuation.explorations[0].phaseBTranscript[0].text), 'emails redacted in exploration phase-B chat');
 assert.equal(deid.meta.deidentified, true, 'deid flag set');
 // original study must be untouched (deep copy)
 assert.equal(study.postSurvey.contact, 'secret@example.com', 'original not mutated');
