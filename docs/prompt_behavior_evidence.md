@@ -1,65 +1,67 @@
 # Prompt-behaviour evidence — length variation & 10-year future grounding
 
-Two role-play effects the supervisor/feedback asked to be real, not just promised:
+Two role-play effects must be real, not just promised:
 
-1. **Reply length varies** — light/throwaway questions get short replies; only big,
-   open questions run long (no uniform medium block every turn).
+1. **Reply length varies** — light/throwaway turns get short replies; only big, open
+   questions run longer; no uniform wall of text every turn.
 2. **Answers and advice are grounded in the 10-years-future world** — the chosen
-   career's tasks, tools and valued skills have changed; advice reflects the
-   future labour market, not today's — **across career types**, not just tech.
+   career's tasks/tools/valued skills have changed — **across career types**, not
+   just tech (clinical, hands-on and caring work included).
 
-## How this was tested
+## How this was tested — on the real study model (gpt-5.1)
 
 `test/prompt_behavior_check.mjs` builds the **real** Stage-C system prompt from
-`lib/prompt.js` (`buildSystemPrompt`) and runs a fixed 8-turn participant script
-spanning a range of question sizes, then measures each reply objectively
-(word-count by turn kind + a future-reality detector on the day-to-day/advice
-turns). Generation needs a model; **measurement does not**.
+`lib/prompt.js`, runs a fixed 8-turn participant script spanning question sizes
+through **gpt-5.1 on the UvA proxy** (the study's actual model), and measures each
+reply objectively: word-count by turn kind (variation + absolute caps) and a
+future-reality detector on the day-to-day/advice turns. It exits non-zero on
+regression, so it can gate fielding. Raw transcripts:
+`docs/prompt_behavior_evidence/gpt5.1_*.json`.
 
-> Sandbox note: this environment has no model key, so the transcripts below were
-> generated with a Claude model **standing in for the study's gpt-5.1**, driven by
-> the exact app prompt. Before fielding, re-run with the real model:
-> `LLM_BASE_URL=… UVA_API_TOKEN=… node test/prompt_behavior_check.mjs`
-> (it exits non-zero if either effect regresses). Raw transcripts are in
-> `docs/prompt_behavior_evidence/bot_*.json`.
+## What the real-model test caught (and the Claude stand-in had hidden)
 
-## Measured result (2026-06-18)
+Running on gpt-5.1 (not a stand-in) exposed three real problems, since fixed:
 
-| Career (type) | short-turn mean | big/advice mean | range | length varies | future-grounded (day/advice) |
-|---|---|---|---|---|---|
-| Data analyst (analytical) | ~42w | ~164w | 10–175w | ✅ | ✅ |
-| Registered nurse (clinical) | ~41w | ~166w | 14–190w | ✅ | ✅ |
-| Primary school teacher (caring)\* | — | ~150w (3-turn probe) | 144–161w | ✅ | ✅ |
+| Problem | Before (gpt-5.1) | After (gpt-5.1) |
+|---|---|---|
+| **Verbose — even light turns were walls** | light/throwaway 74–116w; big/advice 230–465w; max **469w** | short ~39–49w; big/advice ~158–174w; **max ~189w** |
+| **Non-tech advice was "timeless"** (teacher: "explain clearly, be patient") | teacher future-grounding **FAIL** | **PASS** (all three careers) |
+| **Markdown/list & timestamp-log formatting** ("1) … 2) …", "07:38 — …") | present | gone (flowing prose) |
 
-\* Teacher was a focused 3-turn probe of the highest "feels timeless" risk after a
-robustness guard was added (the future-shift now explicitly applies to clinical,
-hands-on, caring, creative and trades work, not only desk jobs).
+Fixes (in `lib/prompt.js`): a blunt **primacy** length directive with a one-line
+example and hard caps (~110w/3-paragraph ceiling; throwaways get one line;
+brevity beats vividness when they conflict; never lists/timestamps); a future
+**MUST** that any answer about the work/skills name a concrete decade-shift —
+explicitly for clinical/hands-on/caring/creative/trades, not only desk work.
 
-### Representative excerpts (future grounding, across fields)
+## Measured result on gpt-5.1 (2026-06-18) — PASS
 
-- **Nurse, day-to-day:** *"the obs mostly run themselves now; the patches read
-  everything and ping me, so i'm not chasing numbers, i'm reading what the numbers
-  mean and deciding who actually needs me."*
-- **Nurse, advice:** *"a lot of the rote clinical recall i sweated over got
-  offloaded to the systems — they'll flag the drug interaction before i would. so
-  don't over-index on memorising facts a tool will hold for you."*
-- **Teacher, advice:** *"The tools handle differentiation and worksheets now …
-  spend less energy on polished lesson plans and more on the messy human stuff —
-  reading a room, sitting with a kid who's melting down."*
-- **Data analyst, advice:** *"Don't go all-in on writing SQL and running
-  regressions by hand the way a 2026 syllabus would tell you — the tools do that
-  now … the part the machines are worst at, and the part everyone needs."*
+| Career (type) | short-turn mean | big/advice mean | range | varies | not-verbose | future-grounded |
+|---|---|---|---|---|---|---|
+| Data analyst (analytical) | ~39w | ~174w | 30–188w | ✅ | ✅ | ✅ |
+| Registered nurse (clinical) | ~49w | ~158w | 34–189w | ✅ | ✅ | ✅ |
+| Primary school teacher (caring) | ~41w | ~169w | 33–185w | ✅ | ✅ | ✅ |
 
-### Length variation (illustrative, data analyst)
+### Representative gpt-5.1 excerpts
 
-`hi?` → 53w · `what do I call you?` → 48w · day-to-day → 171w · what to learn → 175w
-· any regrets → 89w · `lol same` → 10w · hardest part → 145w · `thanks` → 55w.
+- **Length variation (data analyst):** throwaway "lol ok same" → *"Ha, yeah — some
+  things really don't change. The overthinking is still here too, it's just…
+  better aimed."* (18w); big "what's a normal day" → a 184-word, 3-paragraph scene.
+- **Future grounding, analytical:** *"First hour was me and an AI assistant roughing
+  out a customer churn dashboard: I sketched the questions, it spat out code and
+  charts, I kept poking holes in them."*
+- **Future grounding, caring (teacher):** advice now ties to the decade-shift
+  (tools handle differentiation/worksheets; the human facilitation became the core)
+  rather than timeless "explain clearly".
 
 ## Reproduce
 
 ```bash
-# with the study model (gpt-5.1 via the UvA proxy):
-LLM_BASE_URL=<proxy> UVA_API_TOKEN=<token> node test/prompt_behavior_check.mjs
-# or measure transcripts you generated elsewhere (dir holds bot_<career>.json):
+# real study model (gpt-5.1 via the UvA proxy) — set creds in a gitignored .env:
+#   LLM_BASE_URL=https://llmproxy.uva.nl/v1
+#   UVA_API_TOKEN=<token>
+set -a; . ./.env; set +a
+node test/prompt_behavior_check.mjs            # generates on gpt-5.1 + measures; non-zero on regression
+# or measure transcripts generated elsewhere (dir holds bot_<career>.json):
 node test/prompt_behavior_check.mjs --measure docs/prompt_behavior_evidence
 ```

@@ -49,22 +49,30 @@ const RE_FUTURE = /\bAI\b|automat|machine|algorithm|\bmodels?\b|the systems?\b|\
 const words = (s) => (String(s).trim().match(/\S+/g) || []).length;
 const mean = (a) => (a.length ? a.reduce((s, x) => s + x, 0) / a.length : 0);
 
+// Absolute ceilings (the real complaint was walls of text): short turns must be
+// genuinely short, and no reply may be a wall. Caps allow measurement slack over
+// the prompt's ~40w / ~110w targets.
+const SHORT_MAX = 65;   // mean words on light/trivial/throwaway/closing turns (a few sentences)
+const REPLY_MAX = 230;  // any single reply — the Build Plan allows "2–3 short paragraphs"
+                        // for big questions (~200w); this flags true walls (300w+), not those.
+
 export function measure(key, replies) {
   const turns = TURNS;
   const wc = replies.map(words);
   const shortMean = mean(wc.filter((_, i) => SHORT.has(turns[i].kind)));
   const bigMean = mean(wc.filter((_, i) => ['big', 'advice'].includes(turns[i].kind)));
   const varies = bigMean > shortMean * 1.8 && Math.max(...wc) >= Math.min(...wc) * 3;
+  const notVerbose = shortMean <= SHORT_MAX && Math.max(...wc) <= REPLY_MAX;
   // future-grounding required on the career-substantive day-to-day + advice turns
   const keyIdx = turns.map((t, i) => ({ t, i })).filter((x) => ['big', 'advice'].includes(x.t.kind) && /day|learn|focus/i.test(x.t.text)).map((x) => x.i);
   const futureOK = keyIdx.every((i) => RE_FUTURE.test(replies[i]));
-  return { career: PERSONAS[key].career, shortMean, bigMean, range: [Math.min(...wc), Math.max(...wc)], varies, futureOK, pass: varies && futureOK };
+  return { career: PERSONAS[key].career, shortMean, bigMean, range: [Math.min(...wc), Math.max(...wc)], varies, notVerbose, futureOK, pass: varies && notVerbose && futureOK };
 }
 
 function report(results) {
   let ok = true;
   for (const r of results) {
-    console.log(`${r.career}: short~${r.shortMean.toFixed(0)}w big/advice~${r.bigMean.toFixed(0)}w range ${r.range[0]}-${r.range[1]}w | length-varies: ${r.varies ? 'PASS' : 'FAIL'} | future-grounded(day/advice): ${r.futureOK ? 'PASS' : 'FAIL'}`);
+    console.log(`${r.career}: short~${r.shortMean.toFixed(0)}w big/advice~${r.bigMean.toFixed(0)}w range ${r.range[0]}-${r.range[1]}w | varies: ${r.varies ? 'PASS' : 'FAIL'} | not-verbose: ${r.notVerbose ? 'PASS' : 'FAIL'} | future(day/advice): ${r.futureOK ? 'PASS' : 'FAIL'}`);
     ok = ok && r.pass;
   }
   console.log(ok ? '\nPROMPT BEHAVIOUR CHECK PASSED ✅' : '\nPROMPT BEHAVIOUR CHECK FAILED ❌');
@@ -77,12 +85,23 @@ async function callModel(system, history) {
   const token = process.env.UVA_API_TOKEN || '';
   const model = process.env.LLM_MODEL || 'gpt-5.1';
   if (base && token) {
-    const r = await fetch(`${base}/chat/completions`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ model, messages: [{ role: 'system', content: system }, ...history] }),
-    });
-    const j = await r.json();
-    return j.choices?.[0]?.message?.content || '';
+    // Mirror the app's call (server.js): temperature + generous max_tokens, and
+    // retry transient upstream 5xx/empties (the proxy 500s intermittently) so the
+    // test reflects the app's resilient behaviour rather than its own gaps.
+    for (let attempt = 0; attempt < 4; attempt++) {
+      try {
+        const r = await fetch(`${base}/chat/completions`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ model, temperature: Number(process.env.LLM_TEMPERATURE ?? 0.9), max_tokens: Number(process.env.LLM_MAX_TOKENS ?? 16384), messages: [{ role: 'system', content: system }, ...history] }),
+        });
+        if (r.status === 429 || r.status >= 500) { await new Promise((s) => setTimeout(s, 1200 * (attempt + 1))); continue; }
+        const j = await r.json();
+        const txt = (j.choices?.[0]?.message?.content || '').trim();
+        if (txt) return txt;
+      } catch (e) { /* retry */ }
+      await new Promise((s) => setTimeout(s, 1200 * (attempt + 1)));
+    }
+    return '';
   }
   if (process.env.ANTHROPIC_API_KEY) {
     const { default: Anthropic } = await import('@anthropic-ai/sdk');
@@ -103,6 +122,7 @@ async function generate(key) {
     replies.push(reply);
     history.push({ role: 'assistant', content: reply });
   }
+  try { (await import('fs')).writeFileSync(`/tmp/gen_${key}.json`, JSON.stringify(replies, null, 1)); } catch (e) {}
   return replies;
 }
 
