@@ -258,7 +258,13 @@ function Chat({ profile, condition = 'main', profileData = {}, phaseBNotes = '',
 
   useEffect(() => {
     const el = scrollRef.current;
-    if (el) el.scrollTop = el.scrollHeight;
+    if (!el) return;
+    // Open the role-play at the TOP of the future self's first message so the
+    // participant reads it from the beginning (was: jumped to the bottom, which
+    // cut off a long opening — Andrea feedback 2026-06-18). Once they've sent a
+    // turn, follow the newest message as usual.
+    const hasUserTurn = messages.some((m) => m.role === 'user');
+    el.scrollTop = hasUserTurn ? el.scrollHeight : 0;
   }, [messages, pending, booting]);
 
   // Tick the clock only while the conversation is actually live: not while

@@ -202,7 +202,9 @@ function Chat({
   const soft = !isExplore && !hard && elapsedMin >= nextRest;
   useEffect(() => {
     const el = scrollRef.current;
-    if (el) el.scrollTop = el.scrollHeight;
+    if (!el) return;
+    const hasUserTurn = messages.some(m => m.role === 'user');
+    el.scrollTop = hasUserTurn ? el.scrollHeight : 0;
   }, [messages, pending, booting]);
   useEffect(() => {
     if (booting) return undefined;

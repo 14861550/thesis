@@ -376,7 +376,7 @@ function buildPreSections(answers, onChange) {
     },
     {
       title: 'What matters in work',
-      intro: 'How important is each of these in your ideal job? Rate every one.',
+      intro: 'How important is each of these in your ideal job? Please rate each one.',
       ids: WORK_VALUE_ITEMS.map((i) => i.id),
       node: <LikertGrid items={WORK_VALUE_ITEMS} scale={VALUE_SCALE} answers={answers} onChange={set} />,
     },

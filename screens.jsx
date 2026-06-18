@@ -123,7 +123,7 @@ function AvatarCreation({ value, onChange }) {
         </p>
 
         <div className="field-block">
-          <label className="field-label">Your name (or a name to go by)</label>
+          <label className="field-label">Your name (or what you'd prefer to go by)</label>
           <input className="text-input" placeholder="e.g. Maya, Sam, Alex…" value={name} onChange={(e) => set({ name: e.target.value })}/>
         </div>
 

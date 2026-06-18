@@ -148,7 +148,7 @@ function AvatarCreation({
     className: "field-block"
   }, React.createElement("label", {
     className: "field-label"
-  }, "Your name (or a name to go by)"), React.createElement("input", {
+  }, "Your name (or what you'd prefer to go by)"), React.createElement("input", {
     className: "text-input",
     placeholder: "e.g. Maya, Sam, Alex\u2026",
     value: name,
