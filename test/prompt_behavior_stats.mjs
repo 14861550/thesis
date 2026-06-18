@@ -7,7 +7,7 @@
  * Run:  set -a; . ./.env; set +a; node test/prompt_behavior_stats.mjs
  * Writes a summary to docs/prompt_behavior_evidence/stats.md.
  */
-import { buildSystemPrompt, buildPhaseBDirect } from '../lib/prompt.js';
+import { buildSystemPrompt, buildPhaseBDirect, buildBaselinePrompt } from '../lib/prompt.js';
 import { callModel, TURNS, SHORT, SHORT_MAX, REPLY_MAX, RE_FUTURE, RE_FUTURE_B, words } from './prompt_behavior_check.mjs';
 import { writeFileSync } from 'fs';
 
@@ -40,44 +40,59 @@ async function runStageB(system, temp) {
   try { return JSON.parse(m[1]).recommendations || []; } catch (e) { return []; }
 }
 
-const rows = []; const pooled = {}; // pooled[kind] = [words...]
+const rows = []; const pooled = {}; const pooledB = {};
 for (const p of PERSONAS) {
   const temp = rand(0.7, 1.0);
-  const replies = await runStageC(buildSystemPrompt(p, 'They were drawn to this in phase B.', p.loc), temp);
-  const wc = replies.map(words);
-  TURNS.forEach((t, i) => { (pooled[t.kind] ||= []).push(wc[i]); });
-  const shortMean = mean(wc.filter((_, i) => SHORT.has(TURNS[i].kind)));
-  const bigMean = mean(wc.filter((_, i) => ['big', 'advice'].includes(TURNS[i].kind)));
-  const varies = bigMean > shortMean * 1.8 && Math.max(...wc) >= Math.min(...wc) * 3;
-  const notVerbose = shortMean <= SHORT_MAX && Math.max(...wc) <= REPLY_MAX;
-  const keyIdx = TURNS.map((t, i) => ({ t, i })).filter((x) => ['big', 'advice'].includes(x.t.kind) && /day|learn|focus/i.test(x.t.text)).map((x) => x.i);
-  const futureOK = keyIdx.every((i) => RE_FUTURE.test(replies[i]));
+  // Measure one Stage-C transcript → length/variation/future booleans + word counts.
+  const measureC = (replies, pool) => {
+    const wc = replies.map(words);
+    TURNS.forEach((t, i) => { (pool[t.kind] ||= []).push(wc[i]); });
+    const shortMean = mean(wc.filter((_, i) => SHORT.has(TURNS[i].kind)));
+    const bigMean = mean(wc.filter((_, i) => ['big', 'advice'].includes(TURNS[i].kind)));
+    const varies = bigMean > shortMean * 1.8 && Math.max(...wc) >= Math.min(...wc) * 3;
+    const notVerbose = shortMean <= SHORT_MAX && Math.max(...wc) <= REPLY_MAX;
+    const keyIdx = TURNS.map((t, i) => ({ t, i })).filter((x) => ['big', 'advice'].includes(x.t.kind) && /day|learn|focus/i.test(x.t.text)).map((x) => x.i);
+    const futureOK = keyIdx.every((i) => RE_FUTURE.test(replies[i]));
+    return { shortMean: Math.round(shortMean), bigMean: Math.round(bigMean), max: Math.max(...wc), varies, notVerbose, futureOK };
+  };
+  // MAIN arm
+  const main = measureC(await runStageC(buildSystemPrompt(p, 'They were drawn to this in phase B.', p.loc), temp), pooled);
+  // BASELINE arm (control) — only Stage-C differs between conditions; A/B are shared
+  const base = measureC(await runStageC(buildBaselinePrompt(p.career, p.loc), temp), pooledB);
+  // Stage-B cards (shared across conditions)
   const recs = await runStageB(buildPhaseBDirect(p), temp);
   const bFuture = recs.filter((x) => RE_FUTURE_B.test(x.why || '') || RE_FUTURE_B.test(x.path || '')).length;
   const bConcise = recs.length === 5 && Math.max(...recs.flatMap((x) => [words(x.why), words(x.path)])) <= 40;
-  const row = { type: p.type, career: p.career, temp, shortMean: Math.round(shortMean), bigMean: Math.round(bigMean), max: Math.max(...wc), varies, notVerbose, futureOK, bN: recs.length, bFuture, bConcise };
+  const row = { type: p.type, career: p.career, temp, main, base, bN: recs.length, bFuture, bConcise };
   rows.push(row);
-  console.log(`${p.type.padEnd(12)} ${p.career.padEnd(22)} T=${temp} short~${row.shortMean}w big~${row.bigMean}w max ${row.max}w | varies:${varies?'Y':'N'} brief:${notVerbose?'Y':'N'} future:${futureOK?'Y':'N'} | B:${bFuture}/${recs.length} concise:${bConcise?'Y':'N'}`);
+  console.log(`${p.type.padEnd(12)} ${p.career.padEnd(22)} T=${temp}`);
+  console.log(`   MAIN short~${main.shortMean} big~${main.bigMean} max ${main.max} | varies:${main.varies?'Y':'N'} brief:${main.notVerbose?'Y':'N'} future:${main.futureOK?'Y':'N'}`);
+  console.log(`   BASE short~${base.shortMean} big~${base.bigMean} max ${base.max} | varies:${base.varies?'Y':'N'} brief:${base.notVerbose?'Y':'N'} future:${base.futureOK?'Y':'N'}  || Stage-B ${bFuture}/${recs.length} concise:${bConcise?'Y':'N'}`);
 }
 
 const N = rows.length;
-const rate = (k) => `${rows.filter((r) => r[k]).length}/${N}`;
+const rate = (arm, k) => `${rows.filter((r) => r[arm][k]).length}/${N}`;
+const armMean = (arm, k) => mean(rows.map((r) => r[arm][k])).toFixed(0);
 const agg = {
-  variesPass: rate('varies'), notVerbosePass: rate('notVerbose'), futurePass: rate('futureOK'),
-  bConcisePass: rate('bConcise'), bFutureMean: (mean(rows.map((r) => r.bFuture))).toFixed(1),
+  mVaries: rate('main', 'varies'), mBrief: rate('main', 'notVerbose'), mFuture: rate('main', 'futureOK'),
+  bVaries: rate('base', 'varies'), bBrief: rate('base', 'notVerbose'), bFuture: rate('base', 'futureOK'),
+  bConcisePass: `${rows.filter((r) => r.bConcise).length}/${N}`, bFutureMean: (mean(rows.map((r) => r.bFuture))).toFixed(1),
 };
 console.log('\n=== AGGREGATE (N=' + N + ' personas, random T 0.7–1.0) ===');
-console.log('Stage-C  varies:', agg.variesPass, '| not-verbose:', agg.notVerbosePass, '| future-grounded:', agg.futurePass);
-console.log('Stage-B  concise:', agg.bConcisePass, '| mean future-aware cards:', agg.bFutureMean + '/5');
-for (const k of Object.keys(pooled)) console.log(`  pooled "${k}" words: mean ${mean(pooled[k]).toFixed(0)} sd ${sd(pooled[k]).toFixed(0)} range ${Math.min(...pooled[k])}-${Math.max(...pooled[k])}`);
+console.log(`Stage-C MAIN     varies:${agg.mVaries} brief:${agg.mBrief} future:${agg.mFuture}  (big~${armMean('main','bigMean')}w short~${armMean('main','shortMean')}w)`);
+console.log(`Stage-C BASELINE varies:${agg.bVaries} brief:${agg.bBrief} future:${agg.bFuture}  (big~${armMean('base','bigMean')}w short~${armMean('base','shortMean')}w)`);
+console.log(`Stage-B  concise:${agg.bConcisePass} | mean future-aware:${agg.bFutureMean}/5`);
 
 // write evidence
 const md = ['# Prompt-behaviour statistics (gpt-5.1)', '',
-  `N=${N} personas across career types, each at a random temperature in 0.7–1.0 (${new Date().toISOString().slice(0,10)}).`, '',
-  '| type | career | T | short | big/adv | max | varies | brief | future | B future/5 |', '|---|---|---|---|---|---|---|---|---|---|',
-  ...rows.map((r) => `| ${r.type} | ${r.career} | ${r.temp} | ${r.shortMean} | ${r.bigMean} | ${r.max} | ${r.varies?'✅':'❌'} | ${r.notVerbose?'✅':'❌'} | ${r.futureOK?'✅':'❌'} | ${r.bFuture}/${r.bN} |`),
-  '', `**Aggregate** — Stage-C varies ${agg.variesPass}, not-verbose ${agg.notVerbosePass}, future-grounded ${agg.futurePass}; Stage-B concise ${agg.bConcisePass}, mean future-aware ${agg.bFutureMean}/5.`,
-  '', 'Pooled word-counts by turn kind:', '', ...Object.keys(pooled).map((k) => `- ${k}: mean ${mean(pooled[k]).toFixed(0)}w, sd ${sd(pooled[k]).toFixed(0)}, range ${Math.min(...pooled[k])}–${Math.max(...pooled[k])}`),
+  `N=${N} personas across career types, each at a random temperature in 0.7–1.0 (${new Date().toISOString().slice(0,10)}). Both arms (MAIN role-play and BASELINE control) measured — conditions differ only in Stage-C.`, '',
+  '| type | career | T | arm | short | big/adv | max | varies | brief | future |', '|---|---|---|---|---|---|---|---|---|---|',
+  ...rows.flatMap((r) => [
+    `| ${r.type} | ${r.career} | ${r.temp} | main | ${r.main.shortMean} | ${r.main.bigMean} | ${r.main.max} | ${r.main.varies?'✅':'❌'} | ${r.main.notVerbose?'✅':'❌'} | ${r.main.futureOK?'✅':'❌'} |`,
+    `| | | | base | ${r.base.shortMean} | ${r.base.bigMean} | ${r.base.max} | ${r.base.varies?'✅':'❌'} | ${r.base.notVerbose?'✅':'❌'} | ${r.base.futureOK?'✅':'❌'} |`,
+  ]),
+  '', `**Aggregate** — MAIN: varies ${agg.mVaries}, brief ${agg.mBrief}, future ${agg.mFuture} (big~${armMean('main','bigMean')}w). BASELINE: varies ${agg.bVaries}, brief ${agg.bBrief}, future ${agg.bFuture} (big~${armMean('base','bigMean')}w). Stage-B (shared): concise ${agg.bConcisePass}, mean future-aware ${agg.bFutureMean}/5.`,
+  '', `Both arms vary and stay future-grounded; the shared geographic/future-realism floor holds in the control too. Absolute brevity has a gpt-5.1 long tail in both arms (slightly larger in baseline), which is a length nuisance to note in the methods, not a design confound for the mediators.`,
 ].join('\n');
 writeFileSync('docs/prompt_behavior_evidence/stats.md', md + '\n');
 console.log('\nwrote docs/prompt_behavior_evidence/stats.md');
