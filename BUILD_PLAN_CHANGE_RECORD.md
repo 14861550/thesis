@@ -468,3 +468,34 @@ verbatim-wording confirmation before fielding. (commit `2f4beac`.)
   `thesis_svpage_v4 → v5` (stale saved page indices reset). Post-survey is now 8 pages
   (was 7), uniform across all study tags. `npm test` green; full-flow screenshot sweep
   re-run with 0 page errors.
+
+## Round 12 (2026-06-18) — measurement/repo consistency + design-doc audit (Kangzhi)
+
+- **§14b Eval-pipeline FSCS aligned to the fielded 2-item pair** [ON MAIN]: the Python
+  eval pipeline still scored continuity over a phantom 3rd FSCS item (`fscs_care`) from
+  the initial-commit 3-item scale; Round 10 dropped FSCS to the 2-item Ersner-Hershfield
+  pair (`fscs_similar` + `fscs_connected`) everywhere *except* the pipeline. Real sessions
+  never carry `fscs_care`, so `loader._mean` averaged two items for real data while
+  `synth.py` generated three for synthetic — a silent real-vs-silicon asymmetry. Removed
+  `fscs_care`/`fscs_care_post` from `eval_pipeline/{schema,loader,synth}.py`, the
+  anti-circularity fixture, and the eval/README + research-plan docs. eval-pipeline pytest
+  85 passed.
+- **CI now runs the Python eval-pipeline tests** [ON MAIN]: `npm test` exercises no
+  Python, which is why the FSCS drift shipped unnoticed; `.github/workflows/ci.yml` gains
+  a parallel `pytest` job (setup-python 3.11, `eval_pipeline/requirements.txt`, offline).
+- **Survey de-identification widened** [ON MAIN]: `deidentifyStudy()` now scrubs the
+  free-continuation + career-exploration transcripts too (it had only scrubbed phase-B/C),
+  closing an email-in-free-text leak in de-identified exports and the `/results` view;
+  `reconstruct_test` covers it.
+- **restart() hardened** [ON MAIN]: clears any versioned `thesis_svpage*` key by prefix
+  (was a hardcoded `_v4`), so a Restart can't strand a stale page index after a key bump.
+- **CIP comment hygiene** [ON MAIN]: two self-report comments still said "CIP-LR …
+  reverse-scored"; corrected to the confirmed two-index forward-scored CIP (`cip_ca`
+  commitment anxiety + `cip_cf` confidence, 1–6). Comments only.
+- **Design-doc audit** (Build Plan v5.4 / Brief v4.5 / supervisor CIP_outcome_measures):
+  the code matches the **confirmed** specs — CIP items/IDs/mixed-order/6-pt/forward-scoring
+  and AI-isolation, precompiled (no-CDN) architecture, A+/Cozy/Normal comfort defaults,
+  any-major/year/university population (no university field), four AskIdeas chips,
+  manipulation checks, 2-item FSCS. Remaining divergences are the planning **docs lagging
+  the code**, tracked by the `*_to_code_change_record_and_suggestions` documents. Stale
+  PR #2 closed as superseded.
