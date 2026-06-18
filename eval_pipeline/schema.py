@@ -14,14 +14,14 @@ from typing import TypedDict, List, Optional, Literal
 # Pre-survey outcome fields (FORBIDDEN in D0-D2 persona prompts)
 PRE_OUTCOME_FIELDS = frozenset({
     "ios_pre",
-    "fscs_similar", "fscs_connected", "fscs_care",
+    "fscs_similar", "fscs_connected",
     "viv_clear", "viv_tangible", "viv_detail", "viv_felt",
 })
 
 # Post-survey outcome fields (NEVER put in persona for any depth)
 POST_OUTCOME_FIELDS = frozenset({
     "ios_post",
-    "fscs_similar_post", "fscs_connected_post", "fscs_care_post",
+    "fscs_similar_post", "fscs_connected_post",
     "viv_clear_post", "viv_tangible_post", "viv_detail_post", "viv_felt_post",
     "mc_style", "mc_scene", "mc_understand",
     "oe_real", "oe_broke", "oe_voice", "oe_shift",
@@ -49,9 +49,9 @@ CAREER_FIELDS = frozenset({
 OUTCOMES = {
     "continuity": {
         "label": "Continuity (FSCS)",
-        "items": ["fscs_similar_post", "fscs_connected_post", "fscs_care_post"],
+        "items": ["fscs_similar_post", "fscs_connected_post"],
         "scale": (1, 7),
-        "pre_items": ["fscs_similar", "fscs_connected", "fscs_care"],
+        "pre_items": ["fscs_similar", "fscs_connected"],
         "observable": False,
     },
     "vividness": {
@@ -100,15 +100,6 @@ ITEM_SSR_ANCHORS = {
         5: "I feel a fairly strong connection to my future self.",
         6: "I feel a very strong connection to my future self.",
         7: "I feel completely connected to my future self.",
-    },
-    "fscs_care_post": {
-        1: "I do not care at all about what happens to my future self.",
-        2: "I care very little about my future self.",
-        3: "I care somewhat about my future self.",
-        4: "I moderately care about my future self.",
-        5: "I care quite a bit about my future self.",
-        6: "I care very much about my future self.",
-        7: "I care completely about everything that happens to my future self.",
     },
     # Vividness items (post)
     "viv_clear_post": {
