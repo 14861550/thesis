@@ -320,25 +320,43 @@ function ImagineSequence({
   closing
 }) {
   const {
-    useState,
-    useEffect
+    useState
   } = React;
   const [idx, setIdx] = useState(0);
-  useEffect(() => {
-    if (!lines || lines.length < 2) return undefined;
-    const t = setInterval(() => setIdx(i => (i + 1) % lines.length), 6500);
-    return () => clearInterval(t);
-  }, [lines ? lines.length : 0]);
+  const lns = lines || [];
+  const onLast = idx >= lns.length - 1;
   return React.createElement("div", {
     className: "sv-imagine"
   }, React.createElement("div", {
-    className: "sv-imagine-seq"
+    className: "sv-imagine-seq",
+    "aria-live": "polite"
   }, React.createElement("p", {
     key: idx,
     className: "sv-imagine-line"
-  }, lines && lines[idx] || '')), closing && React.createElement("p", {
+  }, lns[idx] || '')), lns.length > 1 && React.createElement("div", {
+    className: "sv-imagine-dots",
+    "aria-hidden": "true"
+  }, lns.map((_, i) => React.createElement("span", {
+    key: i,
+    className: `sv-imagine-dot${i <= idx ? ' on' : ''}`
+  }))), !onLast ? React.createElement("button", {
+    type: "button",
+    className: "btn ghost sv-imagine-next",
+    onClick: () => setIdx(i => Math.min(i + 1, lns.length - 1))
+  }, "Next", React.createElement("svg", {
+    width: "13",
+    height: "13",
+    viewBox: "0 0 13 13",
+    fill: "none"
+  }, React.createElement("path", {
+    d: "M3 6.5h7M6.5 3l4 3.5-4 3.5",
+    stroke: "currentColor",
+    strokeWidth: "1.5",
+    strokeLinecap: "round",
+    strokeLinejoin: "round"
+  }))) : closing ? React.createElement("p", {
     className: "sv-imagine-close"
-  }, closing));
+  }, closing) : null);
 }
 function ChoiceField({
   id,

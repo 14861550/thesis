@@ -509,11 +509,17 @@ textarea.text-input { resize: vertical; min-height: 96px; line-height: 1.55; }
 .sv-imagine { max-width: 58ch; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
 .sv-imagine p { font-size: 17px; line-height: 1.75; color: var(--ink-2); margin: 0; text-wrap: pretty; }
 .sv-imagine .sv-imagine-close { color: var(--muted); font-style: italic; }
-/* Paced imagination: each line fades in, holds, fades out, then the next. */
+/* Self-paced imagination: one line at a time; it gently fades IN when revealed
+   and STAYS (no auto fade-out / cycle). The participant taps "Next" to bring out
+   the next line whenever they're ready. */
 .sv-imagine-seq { min-height: 9.5em; display: flex; align-items: center; justify-content: center; }
-.sv-imagine-line { animation: sv-imagine-fade 6.5s ease both; }
-@keyframes sv-imagine-fade { 0%, 100% { opacity: 0; } 12%, 85% { opacity: 1; } }
+.sv-imagine-line { animation: sv-imagine-in 0.5s ease both; }
+@keyframes sv-imagine-in { from { opacity: 0; } to { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .sv-imagine-line { animation: none; } }
+.sv-imagine-next { align-self: center; }
+.sv-imagine-dots { display: flex; gap: 8px; justify-content: center; }
+.sv-imagine-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--border); transition: background 0.25s ease, transform 0.25s ease; }
+.sv-imagine-dot.on { background: var(--accent); transform: scale(1.15); }
 .sv-field { display: block; margin-bottom: 24px; }
 .sv-label { display: block; font-size: 15.5px; color: var(--ink); margin-bottom: 10px; line-height: 1.5; }
 .sv-input, .sv-textarea {

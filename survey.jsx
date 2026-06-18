@@ -228,23 +228,33 @@ function IOSField({ id, value, onChange, career }) {
   );
 }
 
-/* The imagination prompt, paced: each line gracefully fades in, holds, fades out,
- * and the next takes its place (looping). Gives the participant a calmer moment to
- * picture each part of the day rather than facing a wall of text. */
+/* The imagination prompt, self-paced: one line shows at a time and it STAYS —
+ * the participant taps "Next" to reveal the following line whenever they are
+ * ready (no auto-fade, no auto-advance), so they can sit with each part of the
+ * day for as long as they like. The closing line appears once the last line is
+ * reached. Progress dots show how many parts remain. */
 function ImagineSequence({ lines, closing }) {
-  const { useState, useEffect } = React;
+  const { useState } = React;
   const [idx, setIdx] = useState(0);
-  useEffect(() => {
-    if (!lines || lines.length < 2) return undefined;
-    const t = setInterval(() => setIdx((i) => (i + 1) % lines.length), 6500);
-    return () => clearInterval(t);
-  }, [lines ? lines.length : 0]);
+  const lns = lines || [];
+  const onLast = idx >= lns.length - 1;
   return (
     <div className="sv-imagine">
-      <div className="sv-imagine-seq">
-        <p key={idx} className="sv-imagine-line">{(lines && lines[idx]) || ''}</p>
+      <div className="sv-imagine-seq" aria-live="polite">
+        <p key={idx} className="sv-imagine-line">{lns[idx] || ''}</p>
       </div>
-      {closing && <p className="sv-imagine-close">{closing}</p>}
+      {lns.length > 1 && (
+        <div className="sv-imagine-dots" aria-hidden="true">
+          {lns.map((_, i) => <span key={i} className={`sv-imagine-dot${i <= idx ? ' on' : ''}`} />)}
+        </div>
+      )}
+      {!onLast ? (
+        <button type="button" className="btn ghost sv-imagine-next"
+          onClick={() => setIdx((i) => Math.min(i + 1, lns.length - 1))}>
+          Next
+          <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M3 6.5h7M6.5 3l4 3.5-4 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+        </button>
+      ) : (closing ? <p className="sv-imagine-close">{closing}</p> : null)}
     </div>
   );
 }
