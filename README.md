@@ -180,9 +180,12 @@ at this scale.
 ---
 
 ## Privacy / ethics
-Transcripts, open-ended answers, and the post-survey **contact email** are PII.
-The admin area is auth-gated; full transcripts are never logged. **Export
-de-identified** strips `contact` and redacts email addresses in free text and
+Transcripts and open-ended answers are PII (free text can contain names, places,
+or email addresses). The post-survey **no longer collects a contact email** —
+participants who want a follow-up interview are shown the team's email and only a
+yes/no interest flag is recorded (no contact PII). The admin area is auth-gated;
+full transcripts are never logged. **Export de-identified** still defensively
+strips any legacy `contact` field and redacts email addresses in free text and
 transcripts (name/place redaction is best-effort and flagged — manual review
 required). The `/results` page serves only de-identified, name-stripped data
 (`P01…` labels) and is read-only, so it can be shared with supervisors without
