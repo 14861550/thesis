@@ -7,7 +7,7 @@
     "start": "node server.js",
     "db:up": "docker compose up -d",
     "db:down": "docker compose down",
-    "test": "node test/flow_test.cjs && node test/preview_parity_test.cjs && node test/scroll_memory_test.cjs && node test/recs_test.mjs && node test/reconstruct_test.mjs && node test/admin_gate_test.mjs && node test/db_test.mjs && node test/build_sync_test.mjs",
+    "test": "node test/flow_test.cjs && node test/preview_parity_test.cjs && node test/scroll_memory_test.cjs && node test/recs_test.mjs && node test/phaseb_opening_test.mjs && node test/reconstruct_test.mjs && node test/admin_gate_test.mjs && node test/db_test.mjs && node test/build_sync_test.mjs",
     "build": "node build.mjs"
   },
   "dependencies": {

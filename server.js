@@ -191,7 +191,12 @@ app.post('/api/phase-b/session', async (req, res) => {
       return res.json({ sessionId, opening: null, resumed: true });
     }
     const out = await openSession('b', pickPhaseBPrompt(rec, profileData), PHASE_B_NUDGE);
-    res.json(out);
+    // The direct arm jumps STRAIGHT to the five cards in its opening turn, so the
+    // recommendation block must be extracted here too — otherwise the raw JSON
+    // leaks into the first bubble (only /api/chat extracted it before). The
+    // reflective arm opens with a question, so this is a no-op there.
+    const { clean, recommendations } = extractRecommendations(out.opening);
+    res.json({ sessionId: out.sessionId, opening: clean, recommendations });
   } catch (err) {
     console.error('POST /api/phase-b/session failed:', err?.message || err);
     res.status(502).json({ error: 'Could not reach the guide. Please try again.' });
@@ -303,6 +308,13 @@ app.post('/api/regenerate', async (req, res) => {
   try {
     const reply = await complete(session.systemPrompt, session.messages, { remind: session.phase === 'c' });
     session.messages.push({ role: 'assistant', content: reply });
+    // Symmetry with /api/chat: a regenerated phase-B turn can carry the card
+    // block, so extract it rather than leak raw JSON. (Phase B doesn't expose
+    // regenerate today; this guards against that wiring landing later.)
+    if (session.phase === 'b') {
+      const { clean, recommendations } = extractRecommendations(reply);
+      return res.json({ reply: clean, recommendations });
+    }
     res.json({ reply });
   } catch (err) {
     console.error('POST /api/regenerate failed:', err?.message || err);

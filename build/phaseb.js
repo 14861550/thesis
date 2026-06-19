@@ -73,7 +73,8 @@ function PhaseB({
       try {
         const {
           sessionId: sid,
-          opening
+          opening,
+          recommendations
         } = await postJSON('/api/phase-b/session', {
           profileData,
           rec,
@@ -88,6 +89,7 @@ function PhaseB({
           setMessages([{
             role: 'guide',
             paras: splitParas(opening),
+            recommendations: recommendations || null,
             id: 'g0',
             ts: new Date().toISOString()
           }]);

@@ -59,7 +59,7 @@ function PhaseB({ profileData, rec = 'direct', seedTranscript = [], onDone, onBa
         : { role: 'guide', paras: splitParas(m.text), id: `s${i}`, ts: m.ts || new Date().toISOString() }));
     (async () => {
       try {
-        const { sessionId: sid, opening } = await postJSON('/api/phase-b/session', {
+        const { sessionId: sid, opening, recommendations } = await postJSON('/api/phase-b/session', {
           profileData, rec, priorTranscript: seed.length ? seedTranscript : undefined,
         });
         if (cancelled) return;
@@ -68,7 +68,9 @@ function PhaseB({ profileData, rec = 'direct', seedTranscript = [], onDone, onBa
           setMessages(seed);
           setShowLock(true); // they were already deep in — keep the chooser available
         } else {
-          setMessages([{ role: 'guide', paras: splitParas(opening), id: 'g0', ts: new Date().toISOString() }]);
+          // The direct arm can return its five cards in this opening turn — attach
+          // them so they render as cards (not raw JSON) in the very first bubble.
+          setMessages([{ role: 'guide', paras: splitParas(opening), recommendations: recommendations || null, id: 'g0', ts: new Date().toISOString() }]);
         }
       } catch (e) {
         if (cancelled) return;
