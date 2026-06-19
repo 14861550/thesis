@@ -390,3 +390,24 @@ The Recruit tab can now tag each link with **who is handing it out** (Andrea / T
 Gleb), shown in the link groups ("sent by X · Y version") and the Sessions list, filterable,
 and included in exports — for per-recruiter recruitment tracking. The recruiter is admin-side
 metadata only and is **not** in the participant-facing link, so it cannot affect the experience.
+
+### 8.5 Stage-B reflective arm holds its question cap (stimulus fidelity)
+
+Andrea's **reflective** recommendation arm is defined to surface five directions after *3–4*
+one-at-a-time reflective questions. On the production model it was overshooting to a 5th question
+when a participant answered vaguely — a fidelity drift in the manipulation that the reflective
+*process* (not the cards) is meant to deliver. The prompt now enforces a **hard ceiling of at most
+four questions**, with explicit instruction that vague answers are normal and not grounds to keep
+probing. Verified on gpt-5.1: 3–4 questions every run even under deliberately uninformative answers.
+The **direct** arm (no reflective questioning) is unaffected, so the direct-vs-reflective contrast
+is unchanged.
+
+### 8.6 Future-self voice-matching restored (MAIN condition only)
+
+A core closeness mechanism of the **MAIN** future-self role-play is that it mirrors the
+participant's own register (COMPONENT 1) — including writing back in all-lowercase to a participant
+who texts in all-lowercase. On the production model this had silently stopped working: the future
+self was replying in clean, capitalised prose regardless. It is now re-asserted on every MAIN
+Phase-C turn and verified bidirectional (lowercase in → lowercase out; formal in → formal out). The
+**BASELINE** control is deliberately left without any style instruction, so this *strengthens* the
+intended main-vs-baseline difference rather than confounding it. No measurement or instrument change.

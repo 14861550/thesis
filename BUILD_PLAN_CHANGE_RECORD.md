@@ -612,3 +612,23 @@ The matching `docs/Build_Plan_v5.4_to_code_change_record_and_suggestions.docx` c
   one-question rule held. Kept identical across the two arms (symmetric — no length confound). The verbose
   REPLY LENGTH / PACING blocks inside the system prompt are left as-is (the trailing reminder, being most
   recent, does the work).
+- **§8 stage-B REFLECTIVE question cap — hard ceiling at 4** [DEPLOYED]: teammates reported the reflective
+  arm asking a 5th question despite the prompt's "stop after 3 to 4 exchanges". Reproduced on gpt-5.1: with
+  substantive answers it stopped at 4, but with short/vague/"I don't know" answers it kept probing to 5 (2 of
+  3 runs) — the soft range lost to the model's instinct to gather more before recommending. STEP 2/3 of
+  `buildPhaseBReflective` now state a HARD LIMIT of at most 4 questions (3 often enough), with an explicit
+  "silently count your own questions; vague answers are normal and NOT a reason to keep probing — you already
+  hold the full pre-survey profile, so proceed to the cards." Re-tested with the same vague answers: 3–4
+  every run, never 5, and the internal count is no longer announced (the earlier wording had leaked
+  "question 2 of 4"). DIRECT and GUIDE arms untouched.
+- **§11 stage-C VOICE MIRRORING — main-only per-turn reminder** [DEPLOYED]: teammates reported the future
+  self had stopped matching their all-lowercase texting style. Reproduced on gpt-5.1: against an all-lowercase
+  casual user ("heyy hows the money honestly") the future self replied in fully capitalised, polished prose
+  every turn (0 lowercase vs 11 capital sentence-starts) — COMPONENT 1's mirroring rule, buried high in the
+  long system prompt, lost to the model's clean-prose default as the chat grew (same failure mode as the
+  brevity rule). Added a trailing `STYLE_REMINDER` appended every Phase-C turn in the MAIN condition only
+  (server.js; baseline minimal control deliberately keeps no style instruction, which also sharpens the
+  intended contrast). It is bidirectional: verified on gpt-5.1 that a lowercase user now gets lowercase back
+  (11 vs 0) AND a formally-writing user still gets clean capitalised prose (0 vs 11) — an early one-sided
+  draft over-corrected everyone into lowercase and was rebalanced. Threaded through open/resume/chat/
+  regenerate via a persisted `style` session flag. `npm test` green.
