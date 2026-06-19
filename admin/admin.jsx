@@ -1,0 +1,774 @@
+const { useState, useEffect, useCallback } = React;
+
+async function api(path, opts = {}) {
+  const r = await fetch(path, { headers: { 'Content-Type': 'application/json' }, ...opts });
+  if (r.status === 401) { location.href = '/admin'; throw new Error('unauthorized'); }
+  if (r.status === 503) { const d = await r.json().catch(() => ({})); throw new Error(d.error || 'unavailable'); }
+  if (!r.ok) {
+    const d = await r.json().catch(() => ({}));
+    throw new Error((d.error || ('HTTP ' + r.status))
+      + (d.detail ? ' — ' + d.detail : '')
+      + (d.hint ? ' · Fix: ' + d.hint : ''));
+  }
+  return r.json();
+}
+const short = (id) => (id || '').slice(0, 8);
+const fmt = (t) => t ? new Date(t).toLocaleString() : '—';
+const Pill = ({ s }) => <span className={'pill s-' + s}>{s}</span>;
+// A session counts as REAL participant data when it carries a PID minted by a
+// generated recruit link; rows with no PID are admin ad-hoc / test sessions.
+const SourceBadge = ({ pid, showPid }) => pid
+  ? <span className="pill src-real" title={'Real participant — recruited via generated link (' + pid + ')'}>{showPid ? 'Real · ' + pid : 'Real'}</span>
+  : <span className="pill src-test" title="No participant link — ad-hoc / test session">test</span>;
+
+// Tidy CSV export — one row per run, all scalars + scored scales (§14). Built
+// client-side from the JSON export so it always matches what the DB holds.
+const CSV_MEAN = (o, ids) => {
+  const v = ids.map((i) => Number(o && o[i])).filter((x) => !Number.isNaN(x));
+  return v.length ? (v.reduce((a, b) => a + b, 0) / v.length).toFixed(2) : '';
+};
+// CIP outcomes (1–6) are forward means — CSV_MEAN handles both, no reverse-keying.
+function studiesToCsv(studies) {
+  const cols = ['session_id', 'pid', 'study', 'rec', 'cond', 'status', 'created_at', 'completed_at',
+    'career', 'location', 'familiarity', 'interest_strength', 'c_duration_sec', 'c_turns',
+    'c_ended_by', 'free_turns', 'ios_pre', 'ios_post', 'fscs_pre_mean', 'fscs_post_mean',
+    'viv_pre_mean', 'viv_post_mean',
+    'cip_anxiety_pre_mean', 'cip_confidence_pre_mean', 'cip_anxiety_post_mean', 'cip_confidence_post_mean',
+    'mc_style', 'mc_scene', 'mc_understand'];
+  const esc = (x) => { const s = x == null ? '' : String(x); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+  const rows = studies.map((s) => {
+    const meta = s.meta || {}, pb = s.phaseB || {}, pc = s.phaseC || {}, fc = s.freeContinuation || {};
+    const pre = s.preSurvey || {}, post = s.postSurvey || {};
+    return [meta.sessionId, meta.pid, meta.study, meta.rec, meta.condition,
+      meta.status, meta.createdAt, meta.completedAt,
+      pb.career, pb.location, pb.familiarity, pb.interestStrength, pc.durationSec, pc.turnCount,
+      pc.endedBy, fc.turnCount, pre.ios_pre, post.ios_post,
+      CSV_MEAN(pre, ['fscs_similar', 'fscs_connected']), CSV_MEAN(post, ['fscs_similar_post', 'fscs_connected_post']),
+      CSV_MEAN(pre, ['viv_clear', 'viv_tangible', 'viv_detail', 'viv_felt']),
+      CSV_MEAN(post, ['viv_clear_post', 'viv_tangible_post', 'viv_detail_post', 'viv_felt_post']),
+      CSV_MEAN(pre, ['cip_ca_1', 'cip_ca_2', 'cip_ca_3']), CSV_MEAN(pre, ['cip_cf_1', 'cip_cf_2', 'cip_cf_3']),
+      CSV_MEAN(post, ['cip_ca_1_post', 'cip_ca_2_post', 'cip_ca_3_post']), CSV_MEAN(post, ['cip_cf_1_post', 'cip_cf_2_post', 'cip_cf_3_post']),
+      post.mc_style, post.mc_scene, post.mc_understand].map(esc).join(',');
+  });
+  return cols.join(',') + '\n' + rows.join('\n') + '\n';
+}
+async function downloadCsv() {
+  const studies = await api('/api/admin/sessions/export');
+  const blob = new Blob([studiesToCsv(studies)], { type: 'text/csv' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = 'runs.csv'; a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+// Participant link that hydrates the run from the server row and continues it
+// where it stopped (any device). The role-play transcript is re-seeded into the
+// model, so the future self remembers the earlier conversation.
+function resumeUrl(r) {
+  const q = new URLSearchParams({ session: r.id, resume: '1' });
+  if (r.condition) q.set('cond', r.condition);
+  if (r.rec) q.set('rec', r.rec);
+  if (r.study) q.set('study', r.study);
+  if (r.pid) q.set('pid', r.pid);
+  return location.origin + '/?' + q.toString();
+}
+
+// The participant-facing RECRUIT link (start fresh through landing → consent).
+// Unlike the resume link it has NO resume=1, so a new participant goes through
+// consent and adopts this session id. It is derived entirely from the persisted
+// session row (id + cond/rec/study/pid), so EVERY admin can copy the exact same
+// link from the shared Sessions list — not only whoever first minted it. Mirrors
+// the link the create endpoint returns (lib/admin_routes.js).
+function recruitUrl(r) {
+  const q = new URLSearchParams({ session: r.id });
+  if (r.condition) q.set('cond', r.condition);
+  if (r.rec) q.set('rec', r.rec);
+  if (r.study) q.set('study', r.study);
+  if (r.pid) q.set('pid', r.pid);
+  return location.origin + '/?' + q.toString();
+}
+
+function SessionDetail({ id, onClose }) {
+  const [d, setD] = useState(null);
+  const [err, setErr] = useState(null);
+  useEffect(() => { api('/api/admin/sessions/' + id).then(setD).catch((e) => setErr(e.message)); }, [id]);
+  if (err) return <div className="overlay" onClick={onClose}><div className="modal" onClick={(e) => e.stopPropagation()}><span className="close" onClick={onClose}>×</span><p className="muted">{err}</p></div></div>;
+  if (!d) return <div className="overlay" onClick={onClose}><div className="modal"><p className="muted">Loading…</p></div></div>;
+  const study = d.study || {};
+  const tb = (study.phaseB && study.phaseB.transcript) || [];
+  const tc = (study.phaseC && study.phaseC.transcript) || [];
+  const fc = (study.freeContinuation && study.freeContinuation.transcript) || [];
+  const surv = (obj) => Object.entries(obj || {}).filter(([k]) => k !== 'contact');
+  const pb = study.phaseB || {}, pc = study.phaseC || {}, meta = study.meta || {};
+  const downloadJson = () => {
+    const blob = new Blob([JSON.stringify(study, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = id + '.json'; a.click();
+  };
+  return (
+    <div className="overlay" onClick={onClose}>
+      <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <span className="close" onClick={onClose}>×</span>
+        <h2>
+          Session <code className="id">{short(id)}</code> <Pill s={d.status} /> <SourceBadge pid={meta.pid} showPid />
+        </h2>
+        <p className="muted" style={{ margin: '2px 0 10px' }}>
+          Created {fmt(d.created_at)} · Completed {fmt(d.completed_at)}
+        </p>
+        {meta.pid
+          ? <div className="note real"><b>Real participant data</b> — recruited via a generated link. Version: study=<b>{meta.study || '—'}</b> · rec=<b>{meta.rec || '—'}</b> · cond=<b>{d.condition || '—'}</b> · link #<b>{meta.pid}</b></div>
+          : <div className="note"><b>Ad-hoc / test session</b> — no participant link (PID). Version: study=<b>{meta.study || '—'}</b> · rec=<b>{meta.rec || '—'}</b> · cond=<b>{d.condition || '—'}</b></div>}
+        {/* Participant recruit link — shown to EVERY admin (derived from the
+            shared row), so a teammate can copy the link someone else minted. */}
+        <div className="muted" style={{ fontSize: 12, margin: '0 0 4px' }}>Participant recruit link (start fresh through consent):</div>
+        <div className="link-box" style={{ marginBottom: 8 }}>{recruitUrl({ id, condition: d.condition, rec: meta.rec, study: meta.study, pid: meta.pid })}</div>
+        <div className="row" style={{ marginBottom: 16 }}>
+          <button className="btn pri" onClick={() => navigator.clipboard.writeText(recruitUrl({ id, condition: d.condition, rec: meta.rec, study: meta.study, pid: meta.pid }))}>Copy recruit link</button>
+          <a className="btn" href={resumeUrl({ id, condition: d.condition, rec: meta.rec, study: meta.study, pid: meta.pid })} target="_blank" rel="noreferrer">Resume session ↗</a>
+          <button className="btn" onClick={() => navigator.clipboard.writeText(resumeUrl({ id, condition: d.condition, rec: meta.rec, study: meta.study, pid: meta.pid }))}>Copy resume link</button>
+          <button className="btn" onClick={downloadJson}>Download JSON</button>
+        </div>
+        <div className="grid2">
+          <div className="panel">
+            <h3>Profile, choice &amp; scores</h3>
+            <div className="kv">
+              <b>Name</b><span>{(study.profile && study.profile.name) || '—'}</span>
+              <b>Career</b><span>{pb.career || '—'}</span>
+              <b>Location</b><span>{pb.location || '—'}</span>
+              <b>Familiarity / interest</b><span>{(pb.familiarity != null ? pb.familiarity : '—') + ' / ' + (pb.interestStrength != null ? pb.interestStrength : '—')}</span>
+              <b>C duration</b><span>{pc.durationSec != null ? Math.round(pc.durationSec / 60) + ' min · ' + (pc.turnCount || 0) + ' turns · ended by ' + (pc.endedBy || '—') : '—'}</span>
+              <b>Big Five</b><span>{study.scores && study.scores.bigFive ? Object.entries(study.scores.bigFive).map(([k, v]) => k + ' ' + v).join(' · ') : '—'}</span>
+              <b>RIASEC</b><span>{study.scores && study.scores.riasec ? Object.entries(study.scores.riasec).map(([k, v]) => k + ' ' + v).join(' · ') : '—'}</span>
+              <b>Values</b><span>{study.scores && study.scores.values ? [].concat(study.scores.values).join(', ') : '—'}</span>
+            </div>
+          </div>
+          <div className="panel">
+            <h3>Pre-survey ({surv(study.preSurvey).length} items)</h3>
+            <div className="kv kv-scroll">{surv(study.preSurvey).map(([k, v]) => [<b key={k + 'k'}>{k}</b>, <span key={k + 'v'}>{String(v)}</span>])}</div>
+          </div>
+          <div className="panel">
+            <h3>Phase B — recommendation chat ({tb.length} turns)</h3>
+            <div className="chat">{tb.map((m, i) => <div key={i} className={'bub ' + (m.role === 'user' ? 'user' : 'other')}>{m.text}</div>)}
+              {!tb.length && <p className="muted">No transcript.</p>}</div>
+          </div>
+          <div className="panel">
+            <h3>Phase C — future self ({tc.length} turns)</h3>
+            <div className="chat">{tc.map((m, i) => <div key={i} className={'bub ' + (m.role === 'user' ? 'user' : 'other')}>{m.text}</div>)}
+              {!tc.length && <p className="muted">No transcript.</p>}</div>
+          </div>
+          <div className="panel">
+            <h3>Post-survey ({surv(study.postSurvey).length} items)</h3>
+            <div className="kv kv-scroll">{surv(study.postSurvey).map(([k, v]) => [<b key={k + 'k'}>{k}</b>, <span key={k + 'v'}>{String(v)}</span>])}</div>
+          </div>
+          <div className="panel">
+            <h3>Free continuation ({fc.length} turns)</h3>
+            <div className="chat">{fc.map((m, i) => <div key={i} className={'bub ' + (m.role === 'user' ? 'user' : 'other')}>{m.text}</div>)}
+              {!fc.length && <p className="muted">None.</p>}</div>
+          </div>
+        </div>
+        <details className="raw">
+          <summary>Raw JSON</summary>
+          <pre className="json" style={{ maxHeight: 420 }}>{JSON.stringify(study, null, 2)}</pre>
+        </details>
+      </div>
+    </div>
+  );
+}
+
+function NewSession({ onClose, onCreated }) {
+  const [condition, setCondition] = useState('');
+  const [rec, setRec] = useState('direct');
+  const [study, setStudy] = useState('kangzhi');
+  const [pid, setPid] = useState('');
+  const [link, setLink] = useState(null);
+  const create = async () => {
+    const d = await api('/api/admin/sessions', { method: 'POST', body: JSON.stringify({
+      condition: condition || undefined, rec, study: study || undefined, pid: pid || undefined,
+    }) });
+    setLink({ link: location.origin + d.link, condition: d.condition, rec: d.rec, study: d.study, id: d.id });
+    onCreated && onCreated();
+  };
+  return (
+    <div className="overlay" onClick={onClose}>
+      <div className="modal" style={{ width: 520 }} onClick={(e) => e.stopPropagation()}>
+        <span className="close" onClick={onClose}>×</span>
+        <h2>New participant session</h2>
+        {!link ? (
+          <div>
+            <p className="muted">Leave condition blank for balanced auto-assignment. Rec = stage-B prompt (reflective = default; direct = Andrea's second arm; guide = backup).</p>
+            <div className="row" style={{ marginBottom: 8 }}>
+              <label>Cond&nbsp;
+                <select value={condition} onChange={(e) => setCondition(e.target.value)}>
+                  <option value="">Balanced (auto)</option><option value="main">main</option><option value="baseline">baseline</option>
+                </select>
+              </label>
+              <label>Rec&nbsp;
+                <select value={rec} onChange={(e) => setRec(e.target.value)}>
+                  <option value="reflective">reflective</option><option value="direct">direct</option><option value="guide">guide</option>
+                </select>
+              </label>
+            </div>
+            <div className="row" style={{ marginBottom: 10 }}>
+              <label>Study&nbsp;<input type="text" value={study} onChange={(e) => setStudy(e.target.value)} style={{ width: 110 }} /></label>
+              <label>PID&nbsp;<input type="text" value={pid} onChange={(e) => setPid(e.target.value)} placeholder="K017" style={{ width: 90 }} /></label>
+              <button className="btn pri" onClick={create}>Create &amp; get link</button>
+            </div>
+          </div>
+        ) : (
+          <div>
+            <p>{link.study} · rec <b>{link.rec}</b> · cond <b>{link.condition}</b> · id <code className="id">{short(link.id)}</code></p>
+            <div className="link-box">{link.link}</div>
+            <button className="btn" style={{ marginTop: 10 }} onClick={() => navigator.clipboard.writeText(link.link)}>Copy link</button>
+            <p className="muted" style={{ marginTop: 10, fontSize: 12 }}>Saved to the shared sessions list — any teammate can find this row and copy the same link (Sessions → <b>Copy link</b>, or open it for the full recruit link).</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function SessionsView() {
+  const [rows, setRows] = useState([]);
+  const [condition, setCondition] = useState('');
+  const [status, setStatus] = useState('');
+  const [open, setOpen] = useState(null);
+  const [creating, setCreating] = useState(false);
+  const [err, setErr] = useState(null);
+  const load = useCallback(() => {
+    const q = new URLSearchParams();
+    if (condition) q.set('condition', condition);
+    if (status) q.set('status', status);
+    api('/api/admin/sessions?' + q.toString()).then(setRows).catch((e) => setErr(e.message));
+  }, [condition, status]);
+  useEffect(() => { load(); }, [load]);
+  const del = async (id) => { if (!confirm('Delete session ' + short(id) + '?')) return; await api('/api/admin/sessions/' + id, { method: 'DELETE' }); load(); };
+  if (err) return <div className="note">{err}</div>;
+  return (
+    <div>
+      <div className="toolbar">
+        <select value={condition} onChange={(e) => setCondition(e.target.value)}>
+          <option value="">All conditions</option><option value="main">main</option><option value="baseline">baseline</option>
+        </select>
+        <select value={status} onChange={(e) => setStatus(e.target.value)}>
+          <option value="">All statuses</option><option value="started">started</option><option value="in_progress">in_progress</option>
+          <option value="completed">completed</option><option value="abandoned">abandoned</option>
+        </select>
+        <button className="btn" onClick={load}>Refresh</button>
+        <div className="spacer"></div>
+        <button className="btn pri" onClick={() => setCreating(true)}>+ New session</button>
+        <button className="btn" onClick={() => downloadCsv().catch((e) => setErr(e.message))}>Export CSV (tidy)</button>
+        <button className="btn" onClick={() => { location.href = '/api/admin/sessions/export'; }}>Export all (JSON)</button>
+        <button className="btn" onClick={() => { location.href = '/api/admin/sessions/export?deidentify=1'; }}>Export de-identified</button>
+      </div>
+      <table>
+        <thead><tr><th>ID</th><th>Source</th><th>PID</th><th>Study</th><th>Rec</th><th>Cond</th><th>Status</th><th>Career</th><th>C-turns</th><th>Created</th><th>Completed</th><th></th></tr></thead>
+        <tbody>
+          {rows.map((r) => (
+            <tr key={r.id}>
+              <td><code className="id">{short(r.id)}</code></td>
+              <td><SourceBadge pid={r.pid} /></td>
+              <td className="muted">{r.pid || '—'}</td>
+              <td className="muted">{r.study || '—'}</td>
+              <td>{r.rec || '—'}</td>
+              <td>{r.condition}</td>
+              <td><Pill s={r.status} /></td>
+              <td>{r.career || <span className="muted">—</span>}</td>
+              <td>{r.phase_c_turns}</td>
+              <td className="muted">{fmt(r.created_at)}</td>
+              <td className="muted">{fmt(r.completed_at)}</td>
+              <td className="row">
+                <button className="btn" onClick={() => setOpen(r.id)}>Open</button>
+                <button className="btn" onClick={() => navigator.clipboard.writeText(recruitUrl(r))}
+                  title="Copy the participant recruit link (start fresh through consent). Saved on the shared row, so anyone on the team can copy it.">Copy link</button>
+                <a className="btn" href={resumeUrl(r)} target="_blank" rel="noreferrer"
+                  title="Continue this run where it stopped (works on any device; the future self keeps its memory)">Resume ↗</a>
+                <button className="btn danger" onClick={() => del(r.id)}>Delete</button>
+              </td>
+            </tr>
+          ))}
+          {!rows.length && <tr><td colSpan="12" className="muted">No sessions yet.</td></tr>}
+        </tbody>
+      </table>
+      {open && <SessionDetail id={open} onClose={() => setOpen(null)} />}
+      {creating && <NewSession onClose={() => setCreating(false)} onCreated={load} />}
+    </div>
+  );
+}
+
+const DEPTHS = ['D0', 'D1', 'D2', 'D3'];
+const STRUCTS = ['structured', 'narrative', 'interview'];
+
+function EvalView() {
+  const [runs, setRuns] = useState([]);
+  const [source, setSource] = useState('synthetic');
+  const [depths, setDepths] = useState(['D0', 'D2', 'D3']);
+  const [structs, setStructs] = useState(['structured']);
+  const [nRuns, setNRuns] = useState(5);
+  const [useReal, setUseReal] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState(null);
+  const load = useCallback(() => { api('/api/admin/eval-runs').then(setRuns).catch((e) => setErr(e.message)); }, []);
+  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    const t = setInterval(() => { if (runs.some((r) => r.status === 'queued' || r.status === 'running')) load(); }, 3000);
+    return () => clearInterval(t);
+  }, [runs, load]);
+  const toggle = (arr, set, v) => set(arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v]);
+  const launch = async () => {
+    setBusy(true); setErr(null);
+    try {
+      await api('/api/admin/eval-runs', { method: 'POST', body: JSON.stringify({
+        source, depths, prompt_structures: structs, n_runs: Number(nRuns), use_real: useReal,
+      }) });
+      load();
+    } catch (e) { setErr(e.message); } finally { setBusy(false); }
+  };
+  const headline = (s) => {
+    if (!s || !s.headline) return '—';
+    const h = s.headline.find((x) => x.depth === 'D2' && x.outcome === 'continuity') || s.headline[0];
+    return h ? `${h.depth}/${h.outcome} ρ=${h.spearman == null ? 'n/a' : Number(h.spearman).toFixed(2)}` : '—';
+  };
+  return (
+    <div>
+      <div className="note">
+        <b>Data source</b> — <i>Synthetic</i>: offline, deterministic, shows the agreement gradient (demo / methodology).
+        <i> DB sessions</i>: evaluates your stored sessions (use <b>Real LLM</b> for meaningful numbers; Fake on real sessions is a smoke test).
+      </div>
+      <div className="panel" style={{ marginBottom: 16 }}>
+        <h3>Launch a run</h3>
+        <div className="row" style={{ marginBottom: 8 }}>
+          <label>Source&nbsp;
+            <select value={source} onChange={(e) => setSource(e.target.value)}>
+              <option value="synthetic">Synthetic (offline demo)</option>
+              <option value="db">DB sessions (completed)</option>
+            </select>
+          </label>
+          <label>k (runs/participant) <input type="number" min="1" max="20" value={nRuns} onChange={(e) => setNRuns(e.target.value)} style={{ width: 64 }} /></label>
+          <label className="ck"><input type="checkbox" checked={useReal} onChange={(e) => setUseReal(e.target.checked)} /> Real LLM (needs ANTHROPIC_API_KEY)</label>
+        </div>
+        <div className="row" style={{ marginBottom: 8 }}>
+          <span className="muted">Depths:</span>
+          {DEPTHS.map((d) => <label key={d} className="ck"><input type="checkbox" checked={depths.includes(d)} onChange={() => toggle(depths, setDepths, d)} /> {d}</label>)}
+        </div>
+        <div className="row" style={{ marginBottom: 10 }}>
+          <span className="muted">Structures:</span>
+          {STRUCTS.map((s) => <label key={s} className="ck"><input type="checkbox" checked={structs.includes(s)} onChange={() => toggle(structs, setStructs, s)} /> {s}</label>)}
+        </div>
+        <button className="btn pri" disabled={busy || !depths.length || !structs.length} onClick={launch}>{busy ? 'Launching…' : 'Launch run'}</button>
+        {err && <span className="err-inline">{err}</span>}
+      </div>
+      <table>
+        <thead><tr><th>Run</th><th>Status</th><th>Source</th><th>Config</th><th>Headline</th><th>Created</th><th></th></tr></thead>
+        <tbody>
+          {runs.map((r) => (
+            <tr key={r.id}>
+              <td><code className="id">{short(r.id)}</code></td>
+              <td><Pill s={r.status} /></td>
+              <td>{r.config && r.config.source}{r.config && r.config.use_real ? ' · real' : ' · fake'}</td>
+              <td className="muted">{r.config ? `${(r.config.depths || []).join('/')} × ${(r.config.prompt_structures || []).join('/')} × k${r.config.n_runs}` : '—'}</td>
+              <td>{headline(r.summary)}</td>
+              <td className="muted">{fmt(r.created_at)}</td>
+              <td>
+                {r.status === 'done'
+                  ? <a className="btn" href={'/api/admin/eval-runs/' + r.id + '/report'} target="_blank" rel="noreferrer">Report ↗</a>
+                  : r.status === 'failed' ? <span className="muted" title={r.error}>failed</span> : <span className="muted">…</span>}
+              </td>
+            </tr>
+          ))}
+          {!runs.length && <tr><td colSpan="7" className="muted">No runs yet.</td></tr>}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function SimDetail({ id, onClose }) {
+  const [d, setD] = useState(null);
+  const [err, setErr] = useState(null);
+  useEffect(() => { api('/api/admin/simulations/' + id).then(setD).catch((e) => setErr(e.message)); }, [id]);
+  const body = () => {
+    if (err) return <p className="muted">{err}</p>;
+    if (!d) return <p className="muted">Loading…</p>;
+    const tr = Array.isArray(d.transcript) ? d.transcript : [];
+    const p = d.persona || {};
+    return (
+      <div>
+        <h2>Simulation <code className="id">{short(id)}</code> <Pill s={d.status} /> <span className="pill src-synth" title="Synthetic silicon-persona run — not a real participant">Synthetic</span></h2>
+        <div className="note synth"><b>Synthetic data</b> — silicon-persona simulation, not real user data.</div>
+        <p className="muted">Career: {p.career || '—'} · condition {d.config && d.config.condition} · turns {d.config && d.config.turns} · {fmt(d.created_at)}</p>
+        {d.error && <div className="note">{d.error}</div>}
+        <div className="panel" style={{ marginTop: 12 }}>
+          <h3>Simulated Phase-C transcript (silicon participant ↔ future-self bot)</h3>
+          <div className="chat" style={{ maxHeight: 460 }}>
+            {tr.map((m, i) => <div key={i} className={'bub ' + (m.role === 'user' ? 'user' : 'other')}>{m.text}</div>)}
+            {!tr.length && <p className="muted">No transcript yet.</p>}
+          </div>
+        </div>
+      </div>
+    );
+  };
+  return <div className="overlay" onClick={onClose}><div className="modal" onClick={(e) => e.stopPropagation()}><span className="close" onClick={onClose}>×</span>{body()}</div></div>;
+}
+
+function SimView() {
+  const [rows, setRows] = useState([]);
+  const [sessions, setSessions] = useState([]);
+  const [src, setSrc] = useState('');
+  const [turns, setTurns] = useState(5);
+  const [busy, setBusy] = useState(false);
+  const [open, setOpen] = useState(null);
+  const [err, setErr] = useState(null);
+  const load = useCallback(() => { api('/api/admin/simulations').then(setRows).catch((e) => setErr(e.message)); }, []);
+  useEffect(() => { load(); api('/api/admin/sessions?status=completed').then(setSessions).catch(() => {}); }, [load]);
+  useEffect(() => {
+    const t = setInterval(() => { if (rows.some((r) => r.status === 'queued' || r.status === 'running')) load(); }, 3000);
+    return () => clearInterval(t);
+  }, [rows, load]);
+  const launch = async () => {
+    if (!src) { setErr('Pick a completed session.'); return; }
+    setBusy(true); setErr(null);
+    try { await api('/api/admin/simulations', { method: 'POST', body: JSON.stringify({ source_session_id: src, turns: Number(turns) }) }); load(); }
+    catch (e) { setErr(e.message); } finally { setBusy(false); }
+  };
+  return (
+    <div>
+      <div className="note">
+        A <b>silicon participant</b> built from a completed session's profile chats with the same future-self bot the humans used.
+        The simulated transcript is shown beside the real one on the read-only <a href="/results" target="_blank" rel="noreferrer">/results</a> page.
+        Each run ≈ 2×turns Sonnet calls.
+      </div>
+      <div className="panel" style={{ marginBottom: 16 }}>
+        <h3>Launch a simulation</h3>
+        <div className="row" style={{ marginBottom: 8 }}>
+          <label>Source session&nbsp;
+            <select value={src} onChange={(e) => setSrc(e.target.value)}>
+              <option value="">— pick a completed session —</option>
+              {sessions.map((s) => <option key={s.id} value={s.id}>{(s.career || '—') + ' · ' + short(s.id) + ' · ' + s.condition}</option>)}
+            </select>
+          </label>
+          <label>turns <input type="number" min="1" max="12" value={turns} onChange={(e) => setTurns(e.target.value)} style={{ width: 64 }} /></label>
+          <button className="btn pri" disabled={busy || !src} onClick={launch}>{busy ? 'Launching…' : 'Launch simulation'}</button>
+          {err && <span className="err-inline">{err}</span>}
+        </div>
+      </div>
+      <table>
+        <thead><tr><th>Run</th><th>Status</th><th>Career</th><th>Source</th><th>Turns</th><th>Created</th><th></th></tr></thead>
+        <tbody>
+          {rows.map((r) => (
+            <tr key={r.id}>
+              <td><code className="id">{short(r.id)}</code></td>
+              <td><Pill s={r.status} /></td>
+              <td>{r.career || <span className="muted">—</span>}</td>
+              <td><code className="id">{r.source_session_id ? short(r.source_session_id) : '—'}</code></td>
+              <td>{r.config && r.config.turns}</td>
+              <td className="muted">{fmt(r.created_at)}</td>
+              <td>
+                {r.status === 'done'
+                  ? <button className="btn" onClick={() => setOpen(r.id)}>View</button>
+                  : r.status === 'failed' ? <span className="muted" title={r.error}>failed</span> : <span className="muted">…</span>}
+              </td>
+            </tr>
+          ))}
+          {!rows.length && <tr><td colSpan="7" className="muted">No simulations yet.</td></tr>}
+        </tbody>
+      </table>
+      {open && <SimDetail id={open} onClose={() => setOpen(null)} />}
+    </div>
+  );
+}
+
+// --- Launcher: pick a chatbot version (study cell), batch-mint participant
+// links with sequential PIDs, copy the list, send each link to one participant.
+// direct × main is the shared cell — it is simultaneously Kangzhi's "main" arm
+// and Andrea's "direct" arm. Since Andrea dropped her manipulation-check page,
+// the two are now an identical run, so they collapse into one shared link
+// (study=shared, S-prefixed PIDs) instead of separate K/A links.
+const LAUNCH_CELLS = [
+  { key: 'shared', label: 'Shared · direct × main (Kangzhi main + Andrea direct)', study: 'shared', rec: 'direct', cond: 'main', prefix: 'S' },
+  { key: 'k-base', label: 'Kangzhi · direct × baseline', study: 'kangzhi', rec: 'direct', cond: 'baseline', prefix: 'K' },
+  { key: 'a-refl', label: 'Andrea · reflective × main', study: 'andrea', rec: 'reflective', cond: 'main', prefix: 'A' },
+  { key: 'custom', label: 'Custom combination', custom: true, prefix: 'X' },
+];
+
+function RecruitView() {
+  const [cellKey, setCellKey] = useState('shared');
+  const [custom, setCustom] = useState({ study: 'kangzhi', rec: 'direct', cond: 'main' });
+  const [count, setCount] = useState(5);
+  const [prefix, setPrefix] = useState('S');
+  const [start, setStart] = useState(1);
+  const [busy, setBusy] = useState(false);
+  const [rows, setRows] = useState([]);       // ALL sessions, from the shared DB
+  const [loading, setLoading] = useState(true);
+  const [copied, setCopied] = useState(null);
+  const [err, setErr] = useState(null);
+  const [notice, setNotice] = useState(null);
+  const cell = LAUNCH_CELLS.find((c) => c.key === cellKey);
+  const axes = cell.custom ? custom : cell;
+  // Next free PID number for a prefix, computed from the SHARED rows — so two
+  // teammates minting links never collide on the same participant ID.
+  const nextStartFor = (rws, pfx) => {
+    const p = (pfx || '').trim().toUpperCase();
+    if (!p) return 1;
+    const nums = rws.filter((r) => r.pid && r.pid.toUpperCase().startsWith(p))
+      .map((r) => parseInt(r.pid.slice(p.length), 10)).filter((n) => !Number.isNaN(n));
+    return nums.length ? Math.max(...nums) + 1 : 1;
+  };
+  const load = () => api('/api/admin/sessions')
+    .then((rws) => { setRows(rws); setStart(nextStartFor(rws, prefix)); setLoading(false); })
+    .catch((e) => { setErr(e.message); setLoading(false); });
+  useEffect(() => { load(); }, []); // once, on mount
+  const pick = (c) => { setCellKey(c.key); setPrefix(c.prefix); setStart(nextStartFor(rows, c.prefix)); setCopied(null); };
+  const previewUrl = () => {
+    const q = new URLSearchParams({ cond: axes.cond, rec: axes.rec, study: axes.study, preview: '1' });
+    return location.origin + '/?' + q.toString();
+  };
+  const generate = async () => {
+    setBusy(true); setErr(null); setCopied(null); setNotice(null);
+    try {
+      const n = Math.max(1, Math.min(50, Number(count) || 1));
+      // Never mint a PID that already exists — re-running an overlapping range (or
+      // two teammates generating at once) used to create duplicate rows for the
+      // same participant ID. Skip collisions and report how many were skipped.
+      const existing = new Set(rows.filter((r) => r.pid).map((r) => r.pid.toUpperCase()));
+      let made = 0, skipped = 0;
+      for (let i = 0; i < n; i++) {
+        const pid = prefix.trim() ? prefix.trim().toUpperCase() + String(Number(start) + i).padStart(3, '0') : undefined;
+        if (pid && existing.has(pid)) { skipped++; continue; }
+        await api('/api/admin/sessions', { method: 'POST', body: JSON.stringify({
+          condition: axes.cond, rec: axes.rec, study: axes.study, pid,
+        }) });
+        if (pid) existing.add(pid);
+        made++;
+      }
+      await load(); // re-pull the shared list so the new links show for EVERYONE
+      if (skipped) setNotice(`Generated ${made}; skipped ${skipped} whose PID already existed (no duplicates created).`);
+    } catch (e) { setErr(e.message); }
+    finally { setBusy(false); }
+  };
+  // Delete a single recruit link (its session row). Links a participant has
+  // already started carry data, so they get a louder confirm; unused links
+  // (status 'started', no career/turns) are safe throwaways.
+  const delOne = async (l) => {
+    const msg = l.used
+      ? `Delete ${l.pid}? A participant has ALREADY STARTED this one — its session data will be permanently removed. Continue?`
+      : `Delete unused link ${l.pid}?`;
+    if (!confirm(msg)) return;
+    setBusy(true); setErr(null); setNotice(null);
+    try { await api('/api/admin/sessions/' + l.id, { method: 'DELETE' }); await load(); }
+    catch (e) { setErr(e.message); }
+    finally { setBusy(false); }
+  };
+  // Bulk-clean a group: delete every UNUSED link in it (never touches links a
+  // participant has started), for tidying up over-generated test links.
+  const delUnused = async (g) => {
+    const unused = g.links.filter((l) => !l.used);
+    if (!unused.length) return;
+    if (!confirm(`Delete ${unused.length} unused link${unused.length > 1 ? 's' : ''} in "${g.label}"? Links a participant has already started are kept.`)) return;
+    setBusy(true); setErr(null); setNotice(null);
+    try {
+      for (const l of unused) await api('/api/admin/sessions/' + l.id, { method: 'DELETE' });
+      await load();
+      setNotice(`Deleted ${unused.length} unused link${unused.length > 1 ? 's' : ''}.`);
+    } catch (e) { setErr(e.message); }
+    finally { setBusy(false); }
+  };
+  // Build display groups from the SHARED rows: recruited links (those with a
+  // PID), grouped by version cell, newest group first, links sorted by PID.
+  // A link is "used" once a participant has actually started it (status moved off
+  // 'started', or a career / Phase-C turns were recorded) — those carry real data.
+  const isUsed = (r) => r.status !== 'started' || Boolean(r.career) || (r.phase_c_turns || 0) > 0;
+  const groupMap = {};
+  for (const r of rows) {
+    if (!r.pid) continue;
+    const label = `${r.study || '—'} · ${r.rec || '—'} × ${r.condition || '—'}`;
+    (groupMap[label] = groupMap[label] || []).push({ id: r.id, pid: r.pid, link: recruitUrl(r), created: r.created_at || '', used: isUsed(r) });
+  }
+  const groups = Object.entries(groupMap).map(([label, links]) => {
+    links.sort((a, b) => String(a.pid).localeCompare(String(b.pid), undefined, { numeric: true }));
+    const latest = links.reduce((m, l) => (l.created > m ? l.created : m), '');
+    const unusedCount = links.filter((l) => !l.used).length;
+    return { label, links, latest, unusedCount };
+  }).sort((a, b) => (a.latest < b.latest ? 1 : -1));
+  const copyGroup = (label, links) => {
+    navigator.clipboard.writeText(links.map((l) => l.pid + '\t' + l.link).join('\n'));
+    setCopied(label);
+  };
+  return (
+    <div>
+      <div className="note">
+        <b>Recruit participants</b> — pick the chatbot version (study cell), mint as many personal links
+        as you need, and send <b>one link to one participant</b>. Each link locks its condition and carries
+        a sequential participant ID; the session row appears under Sessions the moment they consent.
+        <b> Every generated link is saved on the server, so the whole team sees the same list below</b> — and
+        the next PID number is taken from everyone's links, so two of you can recruit at once without clashing.
+      </div>
+      <div className="panel" style={{ marginBottom: 16 }}>
+        <h3>1 · Chatbot version</h3>
+        <div className="row" style={{ marginBottom: 10 }}>
+          {LAUNCH_CELLS.map((c) => (
+            <button key={c.key} className={'btn' + (cellKey === c.key ? ' pri' : '')} onClick={() => pick(c)}>{c.label}</button>
+          ))}
+        </div>
+        {cell.custom && (
+          <div className="row" style={{ marginBottom: 4 }}>
+            <label>Study&nbsp;<input type="text" value={custom.study} onChange={(e) => setCustom({ ...custom, study: e.target.value })} style={{ width: 100 }} /></label>
+            <label>Rec&nbsp;
+              <select value={custom.rec} onChange={(e) => setCustom({ ...custom, rec: e.target.value })}>
+                <option value="reflective">reflective</option><option value="direct">direct</option><option value="guide">guide</option>
+              </select>
+            </label>
+            <label>Cond&nbsp;
+              <select value={custom.cond} onChange={(e) => setCustom({ ...custom, cond: e.target.value })}>
+                <option value="main">main</option><option value="baseline">baseline</option>
+              </select>
+            </label>
+          </div>
+        )}
+        <div className="row" style={{ marginBottom: 4 }}>
+          <a className="btn" href={previewUrl()} target="_blank" rel="noreferrer"
+            title="Open this combination as a test drive: nothing is saved, and every step can be skipped without filling anything in.">
+            Test drive this version ↗ <span className="muted">(no data saved)</span>
+          </a>
+        </div>
+        <h3 style={{ marginTop: 14 }}>2 · How many participants</h3>
+        <div className="row">
+          <label>Links <input type="number" min="1" max="50" value={count} onChange={(e) => setCount(e.target.value)} style={{ width: 64 }} /></label>
+          <label>PID prefix <input type="text" value={prefix} onChange={(e) => setPrefix(e.target.value)} style={{ width: 56 }} /></label>
+          <label>from # <input type="number" min="1" value={start} onChange={(e) => setStart(e.target.value)} style={{ width: 72 }} /></label>
+          <button className="btn pri" disabled={busy} onClick={generate}>{busy ? 'Generating…' : 'Generate links'}</button>
+          <button className="btn" disabled={loading || busy} onClick={load} title="Re-pull the shared list">↻ Refresh</button>
+          {err && <span className="err-inline">{err}</span>}
+          {notice && <span className="muted" style={{ marginLeft: 10, fontSize: 13 }}>{notice}</span>}
+        </div>
+      </div>
+      {loading ? <p className="muted">Loading the team's generated links…</p>
+        : !groups.length ? <p className="muted">No participant links generated yet.</p>
+        : groups.map((g) => (
+          <div className="panel" style={{ marginBottom: 14 }} key={g.label}>
+            <h3>{g.links.length} link{g.links.length > 1 ? 's' : ''} · {g.label}{g.latest ? ' · latest ' + fmt(g.latest) : ''}
+              {g.unusedCount ? <span className="muted" style={{ textTransform: 'none', letterSpacing: 0 }}> · {g.unusedCount} unused</span> : null}</h3>
+            <div className="row" style={{ marginBottom: 10 }}>
+              <button className="btn" onClick={() => copyGroup(g.label, g.links)}>{copied === g.label ? 'Copied ✓' : 'Copy all (PID + link)'}</button>
+              {g.unusedCount ? <button className="btn danger" disabled={busy} onClick={() => delUnused(g)}
+                title="Delete every link in this group that no participant has started yet">Delete {g.unusedCount} unused</button> : null}
+            </div>
+            <div className="kv kv-scroll" style={{ gridTemplateColumns: 'max-content 1fr max-content', maxHeight: 320 }}>
+              {g.links.map((l) => [
+                <b key={l.pid + 'k'} title={l.used ? 'A participant has started this link' : 'Unused — no participant yet'}>
+                  {l.pid}{l.used ? <span className="muted" style={{ fontWeight: 400 }}> ·&nbsp;in&nbsp;use</span> : ''}</b>,
+                <span key={l.pid + 'v'}><a href={l.link} target="_blank" rel="noreferrer">{l.link}</a></span>,
+                <button key={l.pid + 'd'} className="link-del" disabled={busy} onClick={() => delOne(l)}
+                  title={l.used ? 'Delete this link (it has participant data)' : 'Delete this unused link'}>×</button>,
+              ])}
+            </div>
+          </div>
+        ))}
+    </div>
+  );
+}
+
+function DescriptivesView() {
+  const [studies, setStudies] = useState(null);
+  const [err, setErr] = useState(null);
+  useEffect(() => { api('/api/admin/sessions/export').then(setStudies).catch((e) => setErr(e.message)); }, []);
+  if (err) return <div className="note">{err}</div>;
+  if (!studies) return <p className="muted">Loading…</p>;
+  const m = (xs) => { const v = xs.map(Number).filter((x) => !Number.isNaN(x)); return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null; };
+  const f2 = (x) => (x == null ? '—' : x.toFixed(2));
+  const d2 = (a, b) => (a == null || b == null ? '—' : (b - a >= 0 ? '+' : '') + (b - a).toFixed(2));
+  const perPerson = (objs, ids) => objs.map((o) => m(ids.map((id) => o[id]))).filter((x) => x != null);
+  const groups = {};
+  for (const s of studies) { const c = (s.meta && s.meta.condition) || 'main'; (groups[c] = groups[c] || []).push(s); }
+  const stat = (list) => {
+    const pre = list.map((s) => s.preSurvey || {}), post = list.map((s) => s.postSurvey || {});
+    return {
+      n: list.length,
+      completed: list.filter((s) => s.meta && s.meta.completedAt).length,
+      iosPre: m(pre.map((o) => o.ios_pre)), iosPost: m(post.map((o) => o.ios_post)),
+      fPre: m(perPerson(pre, ['fscs_similar', 'fscs_connected'])),
+      fPost: m(perPerson(post, ['fscs_similar_post', 'fscs_connected_post'])),
+      vPre: m(perPerson(pre, ['viv_clear', 'viv_tangible', 'viv_detail', 'viv_felt'])),
+      vPost: m(perPerson(post, ['viv_clear_post', 'viv_tangible_post', 'viv_detail_post', 'viv_felt_post'])),
+      // Distal outcomes — CIP-Short, forward means (/6): commitment anxiety + confidence.
+      caPre: m(perPerson(pre, ['cip_ca_1', 'cip_ca_2', 'cip_ca_3'])),
+      caPost: m(perPerson(post, ['cip_ca_1_post', 'cip_ca_2_post', 'cip_ca_3_post'])),
+      cfPre: m(perPerson(pre, ['cip_cf_1', 'cip_cf_2', 'cip_cf_3'])),
+      cfPost: m(perPerson(post, ['cip_cf_1_post', 'cip_cf_2_post', 'cip_cf_3_post'])),
+    };
+  };
+  const conds = Object.keys(groups).sort();
+  return (
+    <div>
+      <div className="note">Live per-condition descriptives (Build Plan §14). Means over stored responses; Δ = post − pre. The two CIP-Short distal outcomes are <b>forward-scored</b> (/6): commitment anxiety (higher = more career indecision) and confidence (career decision self-efficacy; higher = more confident). Descriptive only — t-test / ANCOVA / Cronbach's α are phase 2 (run <b>analysis.py</b> on the exported data).</div>
+      <table>
+        <thead><tr><th>Condition</th><th>N</th><th>Completed</th><th>IOS pre → post (Δ) /7</th><th>FSCS pre → post (Δ) /7</th><th>Vividness pre → post (Δ) /7</th><th>CIP anxiety pre → post (Δ) /6</th><th>CIP confidence pre → post (Δ) /6</th></tr></thead>
+        <tbody>
+          {conds.map((c) => { const s = stat(groups[c]); return (
+            <tr key={c}>
+              <td><b>{c}</b></td><td>{s.n}</td><td>{s.completed}</td>
+              <td>{f2(s.iosPre)} → {f2(s.iosPost)} <span className="muted">({d2(s.iosPre, s.iosPost)})</span></td>
+              <td>{f2(s.fPre)} → {f2(s.fPost)} <span className="muted">({d2(s.fPre, s.fPost)})</span></td>
+              <td>{f2(s.vPre)} → {f2(s.vPost)} <span className="muted">({d2(s.vPre, s.vPost)})</span></td>
+              <td>{f2(s.caPre)} → {f2(s.caPost)} <span className="muted">({d2(s.caPre, s.caPost)})</span></td>
+              <td>{f2(s.cfPre)} → {f2(s.cfPost)} <span className="muted">({d2(s.cfPre, s.cfPost)})</span></td>
+            </tr>
+          ); })}
+          {!conds.length && <tr><td colSpan="8" className="muted">No sessions yet.</td></tr>}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+// Every admin tab needs the database; when it's down each one fails with its own
+// cryptic error. One probe up front turns that into a single actionable banner.
+function DbHealthBanner() {
+  const [health, setHealth] = useState(null);
+  useEffect(() => {
+    fetch('/healthz').then((r) => r.json()).then(setHealth).catch(() => {});
+  }, []);
+  if (!health || health.db) return null;
+  const d = health.db_detail || {};
+  return (
+    <div className="note" style={{ margin: '18px 24px 0', maxWidth: 1132, marginLeft: 'auto', marginRight: 'auto',
+      borderColor: 'var(--accent)', background: 'var(--accent-soft)', color: 'var(--accent-ink)' }}>
+      <b>Database not connected</b> — every list / export below will fail until this is fixed.<br/>
+      Probe: <code>{d.reason || 'unknown'}</code>{d.host ? <> · target host <code>{d.host}</code></> : null}
+      {d.hint ? <><br/><b>Fix:</b> {d.hint}</> : null}
+    </div>
+  );
+}
+
+function App() {
+  const [tab, setTab] = useState('recruit');
+  const [dark, setDark] = useState(() => document.documentElement.getAttribute('data-theme') === 'dark');
+  const toggleTheme = () => {
+    const next = dark ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    localStorage.setItem('admin-theme', next);
+    setDark(!dark);
+  };
+  const logout = async () => { await fetch('/admin/logout', { method: 'POST' }); location.href = '/admin'; };
+  return (
+    <div>
+      <header>
+        <span className="brand"><span className="dot"></span>Thesis</span>
+        <span className="eyebrow-tag">Study admin</span>
+        <div className="tabs">
+          <div className={'tab' + (tab === 'recruit' ? ' on' : '')} onClick={() => setTab('recruit')}>Recruit</div>
+          <div className={'tab' + (tab === 'sessions' ? ' on' : '')} onClick={() => setTab('sessions')}>Sessions</div>
+          <div className={'tab' + (tab === 'desc' ? ' on' : '')} onClick={() => setTab('desc')}>Descriptives</div>
+          <div className={'tab' + (tab === 'eval' ? ' on' : '')} onClick={() => setTab('eval')}>Eval runs</div>
+          <div className={'tab' + (tab === 'sim' ? ' on' : '')} onClick={() => setTab('sim')}>Simulations</div>
+        </div>
+        <div className="spacer"></div>
+        <a className="btn" href="/results" target="_blank" rel="noreferrer">Results ↗</a>
+        <a className="btn" href="/" target="_blank" rel="noreferrer">Participant app ↗</a>
+        <button className="icon-btn" onClick={toggleTheme} title="Toggle light / dark">{dark ? '☀' : '☾'}</button>
+        <button className="btn" onClick={logout}>Sign out</button>
+      </header>
+      <DbHealthBanner />
+      <main>{tab === 'recruit' ? <RecruitView /> : tab === 'sessions' ? <SessionsView /> : tab === 'desc' ? <DescriptivesView /> : tab === 'eval' ? <EvalView /> : <SimView />}</main>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);

@@ -3,7 +3,7 @@
  * If this fails, run `npm run build` and commit the result. */
 import { readFileSync } from 'fs';
 import path from 'path';
-import { compile, SRC, ROOT } from '../build.mjs';
+import { compile, compilePath, SRC, PAGES, ROOT } from '../build.mjs';
 
 let failed = 0;
 for (const name of SRC) {
@@ -12,6 +12,16 @@ for (const name of SRC) {
   try { actual = readFileSync(path.join(ROOT, 'build', `${name}.js`), 'utf8'); } catch (e) {}
   if (actual !== expected) {
     console.error(`✗ build/${name}.js is stale or missing — run \`npm run build\``);
+    failed++;
+  }
+}
+// Gated dashboards (admin/admin.js, results/results.js) are guarded the same way.
+for (const { src, out } of PAGES) {
+  const expected = compilePath(src);
+  let actual = '';
+  try { actual = readFileSync(path.join(ROOT, out), 'utf8'); } catch (e) {}
+  if (actual !== expected) {
+    console.error(`✗ ${out} is stale or missing — run \`npm run build\``);
     failed++;
   }
 }

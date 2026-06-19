@@ -317,6 +317,9 @@ app.use((req, res, next) => {
   if (STATIC_DENY.test(req.path)) return res.status(404).end();
   if (req.path === '/admin/index.html' || req.path === '/admin/login.html') return res.status(404).end();
   if (req.path === '/results/index.html' || req.path === '/results/login.html') return res.status(404).end();
+  // The precompiled dashboard bundles are served only via their gated routes
+  // (mounted above); never let express.static hand them out unauthenticated.
+  if (req.path === '/admin/admin.js' || req.path === '/results/results.js') return res.status(404).end();
   next();
 });
 

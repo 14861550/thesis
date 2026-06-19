@@ -25,12 +25,21 @@ export const ROOT = path.dirname(fileURLToPath(import.meta.url));
 // Same order index.html loads them in.
 export const SRC = ['tweaks-panel', 'graphics', 'screens', 'survey', 'chat', 'phaseb', 'app'];
 
-// Transpile one .jsx → the exact bytes we write to build/<name>.js. Pure (no
-// I/O) so the sync-guard test can compare against the committed output.
-export function compile(name) {
-  const src = readFileSync(path.join(ROOT, `${name}.jsx`), 'utf8');
+// Standalone gated dashboards (admin + results): one self-contained .jsx each,
+// compiled in place beside their gated HTML. Same classic-script IIFE wrapper and
+// the same vendored React global as the app bundles — just precompiled so these
+// pages also have no runtime Babel and no CDN dependency to load.
+export const PAGES = [
+  { src: 'admin/admin.jsx', out: 'admin/admin.js' },
+  { src: 'results/results.jsx', out: 'results/results.js' },
+];
+
+// Transpile one .jsx (path relative to ROOT) → the exact bytes we write out. Pure
+// (no I/O) so the sync-guard test can compare against the committed output.
+export function compilePath(relSrc) {
+  const src = readFileSync(path.join(ROOT, relSrc), 'utf8');
   const { code } = babel.transformSync(src, {
-    filename: `${name}.jsx`,
+    filename: relSrc,
     presets: [['@babel/preset-react', { runtime: 'classic' }]],
     sourceType: 'script',
     configFile: false,
@@ -38,7 +47,12 @@ export function compile(name) {
     comments: false,
     compact: false,
   });
-  return `/* compiled from ${name}.jsx — do not edit; run \`npm run build\` */\n(function () {\n${code}\n})();\n`;
+  return `/* compiled from ${relSrc} — do not edit; run \`npm run build\` */\n(function () {\n${code}\n})();\n`;
+}
+
+// App bundle helper: compile <name>.jsx (at ROOT) → build/<name>.js bytes.
+export function compile(name) {
+  return compilePath(`${name}.jsx`);
 }
 
 function run() {
@@ -47,6 +61,10 @@ function run() {
   for (const name of SRC) {
     writeFileSync(path.join(ROOT, 'build', `${name}.js`), compile(name));
     console.log('  ✓ build/' + name + '.js');
+  }
+  for (const { src, out } of PAGES) {
+    writeFileSync(path.join(ROOT, out), compilePath(src));
+    console.log('  ✓ ' + out);
   }
   for (const [from, to] of [
     ['react/umd/react.production.min.js', 'react.production.min.js'],

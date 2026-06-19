@@ -10,8 +10,12 @@ viewed from the same UI.
 > The frontend source is plain `.jsx` (the source of truth). `npm run build`
 > precompiles it to `build/*.js` and vendors React into `vendor/` — index.html
 > loads those, so there is **no runtime Babel and no CDN** dependency to start.
-> Edit a `.jsx`, then re-run `npm run build` (the committed `build/` is what
-> ships; `npm test` fails if it drifts from source).
+> The gated `/admin` and `/results` dashboards are built the same way
+> (`admin/admin.jsx → admin/admin.js`, `results/results.jsx → results/results.js`,
+> vendored React, fonts loaded non-render-blocking); their compiled bundles are
+> served behind the token, not statically. Edit a `.jsx`, then re-run
+> `npm run build` (the committed build output is what ships; `npm test` fails if
+> it drifts from source).
 
 Persistence is **additive** — with no `DATABASE_URL` the app runs exactly as
 before (in-memory sessions, JSON download at the end).

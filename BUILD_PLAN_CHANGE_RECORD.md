@@ -28,6 +28,12 @@ explicit instruction from Kangzhi that supersedes the v5.1 as-built text.
   below that location had dropped out of the stage-B flow). The `direct` core now
   opens with no confirmation question and a silent five-dimension O*NET scoring pass;
   the `reflective` core uses 3–4 one-at-a-time reflective exchanges before the cards.
+  - **(2026-06-19) Citation year corrected to match the confirmed prompt** [USER-ORDERED].
+    A faithfulness re-check against the confirmed *Prompts for Phase b* (Project Status
+    Brief v4.5 / Artifact Build Plan v5.4) found the only deviation in the restored core
+    was the Whole-Person framework citation: both builders read `Liu et al., 2024` where
+    the tested prompt says **`Liu et al., 2025`**. Fixed in both `buildPhaseBDirect` and
+    `buildPhaseBReflective`; the cores are now verbatim to the confirmed doc.
 - **(2026-06-19) Separate results-share token removed** [USER-ORDERED]. The `/results`
   supervisor surface is now gated by `ADMIN_TOKEN` alone (the admin token is enough).
   Dropped: `RESULTS_TOKEN` env handling, the DB-backed `app_config` token +
@@ -37,6 +43,39 @@ explicit instruction from Kangzhi that supersedes the v5.1 as-built text.
   existing `admin_token` cookie, so a logged-in admin opens `/results` without
   re-entering the token. The view itself is unchanged: still read-only, de-identified,
   and name-stripped (P01…).
+
+## §13b Production hardening — admin / results dashboards
+
+- **(2026-06-19) Recruit links: per-link delete + bulk "delete unused" + duplicate
+  guard** [USER-ORDERED]. The Recruit tab listed every minted link with no way to
+  remove any, so over-generated test links (and accidental duplicate PIDs) piled up.
+  Added: a per-row **×** delete on each link, a per-group **Delete N unused** button
+  (only removes links no participant has started — `status='started'` with no career /
+  Phase-C turns; links carrying real data are kept and need the louder per-row confirm),
+  an **in use** marker on links a participant has started, and an **unused** count in
+  each group header. `generate()` now also **skips any PID that already exists** (a Set
+  built from the shared rows) so re-running an overlapping range — or two teammates
+  minting at once — can no longer create duplicate rows for the same participant ID;
+  it reports how many it skipped. All deletes reuse the existing gated
+  `DELETE /api/admin/sessions/:id`.
+- **(2026-06-19) Admin + results precompiled / vendored like the app** [USER-ORDERED].
+  Both dashboards previously loaded React, ReactDOM and Babel-standalone from the unpkg
+  CDN and transpiled their inline JSX in the browser. They now follow the participant
+  app's pattern: source split out to `admin/admin.jsx` / `results/results.jsx`,
+  precompiled by `npm run build` to `admin/admin.js` / `results/results.js` (same
+  classic-script IIFE wrapper; `build_sync_test.mjs` guards them against drift), with
+  React served from the local `vendor/`. **No runtime Babel and no CDN dependency** to
+  load either dashboard. To preserve the gated posture (the HTML is 404'd from static
+  and served only behind `ADMIN_TOKEN`), the compiled bundles are served by new gated
+  routes `GET /admin/admin.js` (requireAdmin) and `GET /results/results.js`
+  (requireResults) and likewise blocked from `express.static` — they never reach an
+  unauthenticated client.
+- **(2026-06-19) Font CDN hardened on all gated pages** [USER-ORDERED]. The Google
+  Fonts stylesheet on `admin/index.html`, `results/index.html` and both login pages now
+  loads non-render-blocking (`media="print" onload="this.media='all'"`, with a
+  `<noscript>` fallback). With React vendored, a slow or unreachable fonts CDN can no
+  longer block or break these surfaces — they render immediately on the system-font
+  fallbacks already in the `--font-*` stacks.
 
 - **(2026-06-11) Default `rec` = `reflective`** [USER-ORDERED] [DEPLOYED]. Andrea's
   reflective prompt is the working stage-B design for ALL cells; Kangzhi's guide is a
