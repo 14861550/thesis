@@ -600,8 +600,11 @@ function RecruitView() {
   const groupMap = {};
   for (const r of rows) {
     if (!r.pid) continue;
-    const who = r.recruiter ? `${r.recruiter} → ` : '';
-    const label = `${who}${r.study || '—'} · ${r.rec || '—'} × ${r.condition || '—'}`;
+    // Disambiguate the two names: "sent by <recruiter>" (who distributed the
+    // link) vs "<study> version" (which chatbot version) — so "Gleb → andrea"
+    // can't be misread as one person.
+    const who = r.recruiter ? `sent by ${r.recruiter} · ` : '';
+    const label = `${who}${r.study || '—'} version · ${r.rec || '—'} × ${r.condition || '—'}`;
     (groupMap[label] = groupMap[label] || []).push({ id: r.id, pid: r.pid, link: recruitUrl(r), created: r.created_at || '', used: isUsed(r) });
   }
   const groups = Object.entries(groupMap).map(([label, links]) => {

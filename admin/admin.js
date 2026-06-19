@@ -1004,8 +1004,8 @@ function RecruitView() {
   const groupMap = {};
   for (const r of rows) {
     if (!r.pid) continue;
-    const who = r.recruiter ? `${r.recruiter} → ` : '';
-    const label = `${who}${r.study || '—'} · ${r.rec || '—'} × ${r.condition || '—'}`;
+    const who = r.recruiter ? `sent by ${r.recruiter} · ` : '';
+    const label = `${who}${r.study || '—'} version · ${r.rec || '—'} × ${r.condition || '—'}`;
     (groupMap[label] = groupMap[label] || []).push({
       id: r.id,
       pid: r.pid,
