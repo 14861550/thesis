@@ -30,6 +30,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/configure-pages@v5
+        # enablement:true lets the workflow's own GITHUB_TOKEN (pages: write,
+        # granted above) turn Pages ON via the API — so no repo-admin / Settings
+        # access is needed. The first run both enables Pages and deploys.
+        with:
+          enablement: true
       - uses: actions/upload-pages-artifact@v3
         with:
           path: site
