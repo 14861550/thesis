@@ -388,15 +388,16 @@ function buildPreSections(answers, onChange) {
     },
     {
       // Standalone "imagine your future self" page (Build Plan v5.3 §0.0b(c)),
-      // immediately before the future-self mediator block. A 20-second timed hold
-      // (restored 2026-06-19 at Kangzhi's request — supersedes the §7.3 skippable
-      // version) keeps the participant with the imagination before the closeness
-      // measure. It runs in preview too (with a one-click "Skip the wait"); only
-      // the headless tests bypass it. Nothing here is recorded as an outcome.
+      // immediately before the future-self mediator block. Continue carries a
+      // 20-second countdown ("Take a moment… Ns"); a Skip button lets the
+      // participant move on early (both restored 2026-06-19 at Kangzhi's request).
+      // The countdown runs in preview too so a test drive shows it; the headless
+      // tests bypass it. Nothing here is recorded as an outcome.
       title: 'Picture that future you',
       intro: 'The next questions are about your future self — the person you will be about 10 years from now. Take a moment for this one — there is nothing to answer here, just a minute to imagine.',
       ids: [],
       holdSeconds: 20,
+      skip: true,
       node: (
         <ImagineSequence
           lines={[
@@ -462,12 +463,13 @@ function buildPostSections(answers, onChange, career) {
       // otherwise the pre/post ratings would differ in measurement context, not
       // only in the conversation that happened between them. Worded for *after*
       // the role-play (they have now met this person), and carries the same
-      // 20-second timed hold as the pre page (restored 2026-06-19); nothing here
-      // is recorded.
+      // 20-second Continue countdown + Skip as the pre page (restored 2026-06-19);
+      // nothing here is recorded.
       title: 'Picture that future you, once more',
       intro: 'Before the last questions, take one more moment with your future self — the person you have just been speaking with, about 10 years from now. There is nothing to answer here, just a minute to picture them again.',
       ids: [],
       holdSeconds: 20,
+      skip: true,
       node: (
         <ImagineSequence
           lines={[
@@ -594,12 +596,11 @@ function PagedSurvey({ sections, answers, onChange, onDone, onBack, eyebrow, sto
   const setPage = (n) => { setPageRaw(n); if (storageKey && !isPreview) writeSvPage(storageKey, n); };
   const s = sections[Math.min(page, sections.length - 1)];
 
-  // Optional timed "hold" gate (supervisor feedback, 14 Jun 2026): a page can
-  // ask the participant to sit with a prompt for a few seconds before the
-  // Continue button unlocks — used for the future-self imagination pages.
-  // The hold runs in BOTH real and preview runs (so a researcher test-drive shows
-  // the real experience — preview gets a one-click "Skip the wait" below so it is
-  // not forced to sit 20s every time); only the headless tests bypass it.
+  // Optional timed "hold" gate (supervisor feedback, 14 Jun 2026): a page can put
+  // a few-second countdown on its Continue button ("Take a moment… Ns") — used for
+  // the future-self imagination pages, which ALSO offer a Skip to move on early.
+  // The countdown runs in BOTH real and preview runs (so a test-drive shows it);
+  // only the headless tests bypass it (THESIS_TEST_NO_HOLD).
   const holdFor = (sec) => {
     if (typeof window !== 'undefined' && window.THESIS_TEST_NO_HOLD) return 0;
     return sec || 0;
@@ -654,7 +655,7 @@ function PagedSurvey({ sections, answers, onChange, onDone, onBack, eyebrow, sto
         ) : <span />}
         <span className="step-label">{page + 1} OF {sections.length}</span>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          {isPreview && !heldEnough && <button className="btn ghost" onClick={next}>Skip the wait</button>}
+          {s.skip && <button className="btn ghost" onClick={next}>Skip</button>}
           <button className="btn accent" disabled={!complete} onClick={next}>
             {!heldEnough ? `Take a moment… ${remaining}s` : (isLast ? 'Done' : 'Continue')}
             <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M3 6.5h7M6.5 3l4 3.5-4 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
