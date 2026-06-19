@@ -55,6 +55,8 @@ function Overview() {
   }, "Loading\u2026");
   const conds = Object.entries(d.by_condition || {});
   const careers = Object.entries(d.by_career || {}).sort((a, b) => b[1] - a[1]);
+  const md = d.mean_delta || {},
+    mp = d.mean_post || {};
   return React.createElement("div", null, React.createElement("h1", {
     className: "page"
   }, "Research so far"), React.createElement("p", {
@@ -76,7 +78,7 @@ function Overview() {
   }, "Mean \u0394 vividness"), React.createElement("div", {
     className: "big"
   }, React.createElement(Delta, {
-    v: d.mean_delta.vividness
+    v: md.vividness
   })), React.createElement("div", {
     className: "small"
   }, "pre \u2192 post (1\u20137)")), React.createElement("div", {
@@ -86,7 +88,7 @@ function Overview() {
   }, "Mean \u0394 closeness"), React.createElement("div", {
     className: "big"
   }, React.createElement(Delta, {
-    v: d.mean_delta.closeness
+    v: md.closeness
   })), React.createElement("div", {
     className: "small"
   }, "IOS (1\u20137)"))), React.createElement("div", {
@@ -97,7 +99,7 @@ function Overview() {
     key: k
   }, React.createElement("td", null, lbl), React.createElement("td", {
     className: "num"
-  }, num(d.mean_post[k])))))), React.createElement("p", {
+  }, num(mp[k])))))), React.createElement("p", {
     className: "muted",
     style: {
       marginTop: 8,
@@ -191,9 +193,18 @@ function RunsView() {
   const [rows, setRows] = useState([]);
   const [open, setOpen] = useState(null);
   const [err, setErr] = useState(null);
-  useEffect(() => {
+  const load = useCallback(() => {
     api('/api/results/runs').then(setRows).catch(e => setErr(e.message));
   }, []);
+  useEffect(() => {
+    load();
+  }, [load]);
+  useEffect(() => {
+    const t = setInterval(() => {
+      if (rows.some(r => r.status === 'queued' || r.status === 'running')) load();
+    }, 4000);
+    return () => clearInterval(t);
+  }, [rows, load]);
   const headline = s => {
     if (!s || !s.headline) return '—';
     const h = s.headline.find(x => x.outcome === 'closeness') || s.headline[0];

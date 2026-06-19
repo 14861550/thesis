@@ -114,7 +114,7 @@ function SessionDetail({ id, onClose }) {
           Created {fmt(d.created_at)} · Completed {fmt(d.completed_at)}
         </p>
         {meta.pid
-          ? <div className="note real"><b>Real participant data</b> — recruited via a generated link. Version: study=<b>{meta.study || '—'}</b> · rec=<b>{meta.rec || '—'}</b> · cond=<b>{d.condition || '—'}</b> · link #<b>{meta.pid}</b></div>
+          ? <div className="note real"><b>Real participant data</b> — recruited via a generated link. Version: study=<b>{meta.study || '—'}</b> · rec=<b>{meta.rec || '—'}</b> · cond=<b>{d.condition || '—'}</b> · PID <b>{meta.pid}</b></div>
           : <div className="note"><b>Ad-hoc / test session</b> — no participant link (PID). Version: study=<b>{meta.study || '—'}</b> · rec=<b>{meta.rec || '—'}</b> · cond=<b>{d.condition || '—'}</b></div>}
         {/* Participant recruit link — shown to EVERY admin (derived from the
             shared row), so a teammate can copy the link someone else minted. */}

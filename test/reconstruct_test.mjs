@@ -45,9 +45,12 @@ assert.ok(!/@/.test(deid.freeContinuation.transcript[0].text), 'emails redacted 
 assert.ok(!/@/.test(deid.freeContinuation.explorations[0].transcript[0].text), 'emails redacted in exploration chat');
 assert.ok(!/@/.test(deid.freeContinuation.explorations[0].phaseBTranscript[0].text), 'emails redacted in exploration phase-B chat');
 assert.equal(deid.meta.deidentified, true, 'deid flag set');
+// the self-entered name is a direct identifier — a de-identified export must drop it
+assert.ok(!deid.profile.name, 'de-identified export must not carry the self-entered name');
 // original study must be untouched (deep copy)
 assert.equal(study.postSurvey.contact, 'secret@example.com', 'original not mutated');
-console.log('✓ deidentifyStudy strips contact + redacts emails (non-mutating)');
+assert.equal(study.profile.name, 'Maya', 'original name not mutated');
+console.log('✓ deidentifyStudy strips name + contact + redacts emails (non-mutating)');
 
 await closePool();
 console.log('\nRECONSTRUCT TESTS PASSED ✅');

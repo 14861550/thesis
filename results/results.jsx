@@ -27,6 +27,9 @@ function Overview() {
   if (!d) return <p className="muted">Loading…</p>;
   const conds = Object.entries(d.by_condition || {});
   const careers = Object.entries(d.by_career || {}).sort((a, b) => b[1] - a[1]);
+  // Guard the nested means so a missing/changed payload shows the empty dash
+  // instead of throwing a render-time TypeError that white-screens the tab.
+  const md = d.mean_delta || {}, mp = d.mean_post || {};
   return (
     <div>
       <h1 className="page">Research so far</h1>
@@ -34,14 +37,14 @@ function Overview() {
       <div className="cards">
         <div className="metric"><div className="label">Completed sessions</div><div className="big">{d.n_completed}</div>
           <div className="small">{conds.map(([k, v]) => k + ': ' + v).join(' · ') || '—'}</div></div>
-        <div className="metric"><div className="label">Mean Δ vividness</div><div className="big"><Delta v={d.mean_delta.vividness} /></div><div className="small">pre → post (1–7)</div></div>
-        <div className="metric"><div className="label">Mean Δ closeness</div><div className="big"><Delta v={d.mean_delta.closeness} /></div><div className="small">IOS (1–7)</div></div>
+        <div className="metric"><div className="label">Mean Δ vividness</div><div className="big"><Delta v={md.vividness} /></div><div className="small">pre → post (1–7)</div></div>
+        <div className="metric"><div className="label">Mean Δ closeness</div><div className="big"><Delta v={md.closeness} /></div><div className="small">IOS (1–7)</div></div>
       </div>
       <div className="grid2">
         <div className="panel">
           <h3>Mean post-session scores (1–7)</h3>
           <table><tbody>
-            {OUTC.map(([k, lbl]) => <tr key={k}><td>{lbl}</td><td className="num">{num(d.mean_post[k])}</td></tr>)}
+            {OUTC.map(([k, lbl]) => <tr key={k}><td>{lbl}</td><td className="num">{num(mp[k])}</td></tr>)}
           </tbody></table>
           <p className="muted" style={{ marginTop: 8, fontSize: 12.5 }}>Manipulation checks (sounded like me / spoke in scenes / understood me) have no pre measure.</p>
         </div>
@@ -104,7 +107,15 @@ function RunsView() {
   const [rows, setRows] = useState([]);
   const [open, setOpen] = useState(null);
   const [err, setErr] = useState(null);
-  useEffect(() => { api('/api/results/runs').then(setRows).catch((e) => setErr(e.message)); }, []);
+  const load = useCallback(() => { api('/api/results/runs').then(setRows).catch((e) => setErr(e.message)); }, []);
+  useEffect(() => { load(); }, [load]);
+  // A run launched from /admin can finish while a supervisor sits on this tab —
+  // poll so queued/running rows flip to done (and the report opens) without a
+  // manual reload, matching the admin Eval view and the Sims view below.
+  useEffect(() => {
+    const t = setInterval(() => { if (rows.some((r) => r.status === 'queued' || r.status === 'running')) load(); }, 4000);
+    return () => clearInterval(t);
+  }, [rows, load]);
   const headline = (s) => {
     if (!s || !s.headline) return '—';
     const h = s.headline.find((x) => x.outcome === 'closeness') || s.headline[0];

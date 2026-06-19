@@ -165,7 +165,7 @@ function SessionDetail({
     }
   }, "Created ", fmt(d.created_at), " \xB7 Completed ", fmt(d.completed_at)), meta.pid ? React.createElement("div", {
     className: "note real"
-  }, React.createElement("b", null, "Real participant data"), " \u2014 recruited via a generated link. Version: study=", React.createElement("b", null, meta.study || '—'), " \xB7 rec=", React.createElement("b", null, meta.rec || '—'), " \xB7 cond=", React.createElement("b", null, d.condition || '—'), " \xB7 link #", React.createElement("b", null, meta.pid)) : React.createElement("div", {
+  }, React.createElement("b", null, "Real participant data"), " \u2014 recruited via a generated link. Version: study=", React.createElement("b", null, meta.study || '—'), " \xB7 rec=", React.createElement("b", null, meta.rec || '—'), " \xB7 cond=", React.createElement("b", null, d.condition || '—'), " \xB7 PID ", React.createElement("b", null, meta.pid)) : React.createElement("div", {
     className: "note"
   }, React.createElement("b", null, "Ad-hoc / test session"), " \u2014 no participant link (PID). Version: study=", React.createElement("b", null, meta.study || '—'), " \xB7 rec=", React.createElement("b", null, meta.rec || '—'), " \xB7 cond=", React.createElement("b", null, d.condition || '—')), React.createElement("div", {
     className: "muted",
