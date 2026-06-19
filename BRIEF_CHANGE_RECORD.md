@@ -390,3 +390,20 @@ The Recruit tab can now tag each link with **who is handing it out** (Andrea / T
 Gleb), shown in the link groups ("sent by X · Y version") and the Sessions list, filterable,
 and included in exports — for per-recruiter recruitment tracking. The recruiter is admin-side
 metadata only and is **not** in the participant-facing link, so it cannot affect the experience.
+
+### 8.5 Stage-C baseline trimmed to the minimal control (no RQ change)
+
+The baseline phase-C prompt was drifting richer than Build Plan §3.3/§8.3 intends — that spec defines
+the baseline as the *minimally engineered* role-play with "no design-component instructions" (only a
+generic future-self role + the geography "don't-mislead" floor + plain-prose hygiene). The implementation
+had accumulated an elaborate decade/AI future-grounding paragraph plus money/advice/multi-part lines.
+These were removed (the prompt is ~46% shorter), leaving only the shared floors that keep the two arms
+comparable on everything *except* the manipulation: reply-length pacing (so the baseline doesn't run
+longer than MAIN), the geography floor, and the no-invented-memories coherence floor. The closeness /
+vividness / continuity design components (personal profile, style-mirroring, scene construction,
+present→future bridging) remain — as before — absent from the baseline; that is still the manipulation.
+**Validated on the production model (gpt-5.1):** the trimmed baseline stays length-comparable to MAIN,
+coherent and sincere, honest about a thin job market, and never fabricates a false shared memory — so
+the main-vs-baseline contrast is unchanged. (A further reduction — dropping the no-invented-memories
+floor too, for the literal §8.3 minimum — was left in place as cheap insurance against an immersion-break;
+flag for the team if a stricter §8.3 reading is preferred.)

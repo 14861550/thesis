@@ -602,3 +602,13 @@ The matching `docs/Build_Plan_v5.4_to_code_change_record_and_suggestions.docx` c
   direct manipulation (no exploration question before cards), and the post-pick location negotiation with
   genuine geography-fit reasoning. **No prompt change required**; the confirmed direct prompt is faithful
   and behaves to spec on gpt-5.1.
+- **§8.3 stage-C BASELINE trimmed back toward the confirmed minimal spec** [DEPLOYED]: `buildBaselinePrompt`
+  had drifted to carry design-component-like instructions §8.3 says the baseline must NOT have
+  ("no profile, no stage-B notes, no design-component instructions"). Removed the elaborate decade/AI
+  future-grounding paragraph, the concrete-money line, and the advice / multi-part-question lines (~3110 → ~1690
+  chars). KEPT only the shared floors + hygiene so the arms still differ ONLY by the manipulation:
+  reply-length pacing (Build Plan v5.3 §(g) — empirically required: dropping it made the baseline over-write
+  vs MAIN), the geography "don't-mislead" floor (§8.3), the no-invented-memories coherence floor (Brief
+  §1.4), and the plain-prose line. **Validated on gpt-5.1** (UvA proxy) against MAIN: length-comparable
+  (~110 vs ~131 words/turn — no length confound), coherent sincere future-self, geography floor holds, no
+  spontaneous false "shared memories", no markdown.
