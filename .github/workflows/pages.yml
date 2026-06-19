@@ -1,15 +1,17 @@
-# Publishes the landing page in site/ to GitHub Pages.
-# One-time setup: repo → Settings → Pages → "Build and deployment" →
-# Source: "GitHub Actions". Only the site/ folder is uploaded, so nothing else
-# in the repo (docs/, source, etc.) is exposed by Pages.
+# Deploys the landing page in site/ to GitHub Pages — MANUAL ONLY.
+#
+# This repo's Pages cannot be enabled from here: collaborators have no Pages
+# option in Settings, and the Actions token can't create the site (it gets
+# "Resource not accessible by integration"). So the landing page is served from
+# the app itself instead — https://thesis-production-bc39.up.railway.app/about
+#
+# If the repository OWNER wants a real github.io page too: Settings → Pages →
+# Source → "GitHub Actions", then run this workflow manually (Actions tab → this
+# workflow → "Run workflow"). It is workflow_dispatch-only so it never auto-fails
+# on pushes while Pages is disabled.
 name: Deploy site to GitHub Pages
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - "site/**"
-      - ".github/workflows/pages.yml"
   workflow_dispatch:
 
 permissions:

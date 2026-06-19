@@ -329,6 +329,17 @@ mountStudyRoutes(app);
 mountAdminRoutes(app);
 mountResultsRoutes(app);
 
+// --- Public landing / "about" page ----------------------------------------
+// site/index.html is a polished landing page (app link + project info). It was
+// built for GitHub Pages, but this repo's Pages can't be enabled without the
+// owner: the collaborator's Settings has no Pages option, and the Actions token
+// gets "Resource not accessible by integration" trying to create the site. So
+// we also serve it straight from the app for a guaranteed public URL — /about
+// (alias /welcome). The participant app stays at /.
+app.get(['/about', '/welcome'], (req, res) => {
+  res.sendFile(path.join(__dirname, 'site', 'index.html'));
+});
+
 // --- Static frontend ------------------------------------------------------
 // Serve ONLY the participant app's public assets, via an ALLOWLIST. A denylist
 // was used before and kept under-specifying — the app/admin/results `.jsx`
