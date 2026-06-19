@@ -140,12 +140,20 @@ async function openSession(phase, systemPrompt, nudge) {
 const app = express();
 app.use(express.json({ limit: '512kb' }));
 
-// CORS — the frontend is hosted on a different origin (Vercel) from this API
-// (Railway). No cookies/auth, so a permissive policy is fine for this gateway.
+// CORS — the participant frontend may be hosted on a different origin (Vercel)
+// from this API (Railway), so the public chat/study endpoints allow any origin.
+// The gated /api/admin and /api/results data APIs are SAME-ORIGIN (served from
+// here) and authenticate with an httpOnly cookie, so they are deliberately
+// excluded from the wildcard: without Access-Control-Allow-Credentials the
+// cookie can't ride a cross-origin fetch anyway, and never opening these to
+// other origins keeps it that way (no CSRF/exfil foothold).
 app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type');
+  const gatedApi = req.path.startsWith('/api/admin') || req.path.startsWith('/api/results');
+  if (!gatedApi) {
+    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Content-Type');
+  }
   if (req.method === 'OPTIONS') return res.sendStatus(204);
   next();
 });
@@ -310,16 +318,21 @@ mountAdminRoutes(app);
 mountResultsRoutes(app);
 
 // --- Static frontend ------------------------------------------------------
-// Block server source, libs, DB schema, eval internals, tests, and the admin
-// HTML (served only via the gated /admin route) from being served statically.
-const STATIC_DENY = /^\/(lib|db|test|node_modules|eval_pipeline|showcase)(\/|$)/;
+// Serve ONLY the participant app's public assets, via an ALLOWLIST. A denylist
+// was used before and kept under-specifying — the app/admin/results `.jsx`
+// sources, `server.js`, `build.mjs`, `package.json`, and the study-design
+// `docs/*.docx` were all world-readable, and the gated dashboards' raw source
+// (`/admin/admin.jsx`, `/results/results.jsx`) defeated their own auth gate.
+// The gated `/admin` + `/results` pages and their compiled bundles are served
+// by their own routes above; everything else (backend source, build scripts,
+// study docs, raw .jsx) must 404. Captured from the live app, the participant
+// frontend needs exactly: `/`, index.html, config.js, styles.css, build/*.js,
+// vendor/*.js.
+const STATIC_ALLOW = /^\/(|index\.html|config\.js|styles\.css|build\/[A-Za-z0-9._-]+\.js|vendor\/[A-Za-z0-9._-]+\.js)$/;
 app.use((req, res, next) => {
-  if (STATIC_DENY.test(req.path)) return res.status(404).end();
-  if (req.path === '/admin/index.html' || req.path === '/admin/login.html') return res.status(404).end();
-  if (req.path === '/results/index.html' || req.path === '/results/login.html') return res.status(404).end();
-  // The precompiled dashboard bundles are served only via their gated routes
-  // (mounted above); never let express.static hand them out unauthenticated.
-  if (req.path === '/admin/admin.js' || req.path === '/results/results.js') return res.status(404).end();
+  if ((req.method === 'GET' || req.method === 'HEAD') && !STATIC_ALLOW.test(req.path)) {
+    return res.status(404).end();
+  }
   next();
 });
 
