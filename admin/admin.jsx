@@ -29,7 +29,7 @@ const CSV_MEAN = (o, ids) => {
 };
 // CIP outcomes (1–6) are forward means — CSV_MEAN handles both, no reverse-keying.
 function studiesToCsv(studies) {
-  const cols = ['session_id', 'pid', 'study', 'rec', 'cond', 'status', 'created_at', 'completed_at',
+  const cols = ['session_id', 'pid', 'recruiter', 'study', 'rec', 'cond', 'status', 'created_at', 'completed_at',
     'career', 'location', 'familiarity', 'interest_strength', 'c_duration_sec', 'c_turns',
     'c_ended_by', 'free_turns', 'ios_pre', 'ios_post', 'fscs_pre_mean', 'fscs_post_mean',
     'viv_pre_mean', 'viv_post_mean',
@@ -39,7 +39,7 @@ function studiesToCsv(studies) {
   const rows = studies.map((s) => {
     const meta = s.meta || {}, pb = s.phaseB || {}, pc = s.phaseC || {}, fc = s.freeContinuation || {};
     const pre = s.preSurvey || {}, post = s.postSurvey || {};
-    return [meta.sessionId, meta.pid, meta.study, meta.rec, meta.condition,
+    return [meta.sessionId, meta.pid, meta.recruiter, meta.study, meta.rec, meta.condition,
       meta.status, meta.createdAt, meta.completedAt,
       pb.career, pb.location, pb.familiarity, pb.interestStrength, pc.durationSec, pc.turnCount,
       pc.endedBy, fc.turnCount, pre.ios_pre, post.ios_post,
@@ -114,7 +114,7 @@ function SessionDetail({ id, onClose }) {
           Created {fmt(d.created_at)} · Completed {fmt(d.completed_at)}
         </p>
         {meta.pid
-          ? <div className="note real"><b>Real participant data</b> — recruited via a generated link. Version: study=<b>{meta.study || '—'}</b> · rec=<b>{meta.rec || '—'}</b> · cond=<b>{d.condition || '—'}</b> · PID <b>{meta.pid}</b></div>
+          ? <div className="note real"><b>Real participant data</b> — recruited via a generated link. Version: study=<b>{meta.study || '—'}</b> · rec=<b>{meta.rec || '—'}</b> · cond=<b>{d.condition || '—'}</b> · PID <b>{meta.pid}</b>{meta.recruiter ? <span> · sent by <b>{meta.recruiter}</b></span> : null}</div>
           : <div className="note"><b>Ad-hoc / test session</b> — no participant link (PID). Version: study=<b>{meta.study || '—'}</b> · rec=<b>{meta.rec || '—'}</b> · cond=<b>{d.condition || '—'}</b></div>}
         {/* Participant recruit link — shown to EVERY admin (derived from the
             shared row), so a teammate can copy the link someone else minted. */}
@@ -178,12 +178,13 @@ function NewSession({ onClose, onCreated }) {
   const [rec, setRec] = useState('direct');
   const [study, setStudy] = useState('kangzhi');
   const [pid, setPid] = useState('');
+  const [recruiter, setRecruiter] = useState('');
   const [link, setLink] = useState(null);
   const create = async () => {
     const d = await api('/api/admin/sessions', { method: 'POST', body: JSON.stringify({
-      condition: condition || undefined, rec, study: study || undefined, pid: pid || undefined,
+      condition: condition || undefined, rec, study: study || undefined, pid: pid || undefined, recruiter: recruiter || undefined,
     }) });
-    setLink({ link: location.origin + d.link, condition: d.condition, rec: d.rec, study: d.study, id: d.id });
+    setLink({ link: location.origin + d.link, condition: d.condition, rec: d.rec, study: d.study, recruiter: d.recruiter, id: d.id });
     onCreated && onCreated();
   };
   return (
@@ -209,12 +210,20 @@ function NewSession({ onClose, onCreated }) {
             <div className="row" style={{ marginBottom: 10 }}>
               <label>Study&nbsp;<input type="text" value={study} onChange={(e) => setStudy(e.target.value)} style={{ width: 110 }} /></label>
               <label>PID&nbsp;<input type="text" value={pid} onChange={(e) => setPid(e.target.value)} placeholder="K017" style={{ width: 90 }} /></label>
+            </div>
+            <div className="row" style={{ marginBottom: 10, alignItems: 'center' }}>
+              <span className="muted" style={{ fontSize: 13 }}>Sent by</span>
+              {RECRUITERS.map((name) => (
+                <button key={name} className={'btn' + (recruiter === name ? ' pri' : '')}
+                  onClick={() => setRecruiter(recruiter === name ? '' : name)}>{name}</button>
+              ))}
+              <div className="spacer"></div>
               <button className="btn pri" onClick={create}>Create &amp; get link</button>
             </div>
           </div>
         ) : (
           <div>
-            <p>{link.study} · rec <b>{link.rec}</b> · cond <b>{link.condition}</b> · id <code className="id">{short(link.id)}</code></p>
+            <p>{link.recruiter ? <span>sent by <b>{link.recruiter}</b> · </span> : null}{link.study} · rec <b>{link.rec}</b> · cond <b>{link.condition}</b> · id <code className="id">{short(link.id)}</code></p>
             <div className="link-box">{link.link}</div>
             <button className="btn" style={{ marginTop: 10 }} onClick={() => navigator.clipboard.writeText(link.link)}>Copy link</button>
             <p className="muted" style={{ marginTop: 10, fontSize: 12 }}>Saved to the shared sessions list — any teammate can find this row and copy the same link (Sessions → <b>Copy link</b>, or open it for the full recruit link).</p>
@@ -229,6 +238,7 @@ function SessionsView() {
   const [rows, setRows] = useState([]);
   const [condition, setCondition] = useState('');
   const [status, setStatus] = useState('');
+  const [recruiter, setRecruiter] = useState('');
   const [open, setOpen] = useState(null);
   const [creating, setCreating] = useState(false);
   const [err, setErr] = useState(null);
@@ -236,8 +246,9 @@ function SessionsView() {
     const q = new URLSearchParams();
     if (condition) q.set('condition', condition);
     if (status) q.set('status', status);
+    if (recruiter) q.set('recruiter', recruiter);
     api('/api/admin/sessions?' + q.toString()).then(setRows).catch((e) => setErr(e.message));
-  }, [condition, status]);
+  }, [condition, status, recruiter]);
   useEffect(() => { load(); }, [load]);
   const del = async (id) => { if (!confirm('Delete session ' + short(id) + '?')) return; await api('/api/admin/sessions/' + id, { method: 'DELETE' }); load(); };
   if (err) return <div className="note">{err}</div>;
@@ -251,6 +262,10 @@ function SessionsView() {
           <option value="">All statuses</option><option value="started">started</option><option value="in_progress">in_progress</option>
           <option value="completed">completed</option><option value="abandoned">abandoned</option>
         </select>
+        <select value={recruiter} onChange={(e) => setRecruiter(e.target.value)} title="Filter by who handed out the link">
+          <option value="">All recruiters</option>
+          {RECRUITERS.map((name) => <option key={name} value={name}>{name}</option>)}
+        </select>
         <button className="btn" onClick={load}>Refresh</button>
         <div className="spacer"></div>
         <button className="btn pri" onClick={() => setCreating(true)}>+ New session</button>
@@ -259,13 +274,14 @@ function SessionsView() {
         <button className="btn" onClick={() => { location.href = '/api/admin/sessions/export?deidentify=1'; }}>Export de-identified</button>
       </div>
       <table>
-        <thead><tr><th>ID</th><th>Source</th><th>PID</th><th>Study</th><th>Rec</th><th>Cond</th><th>Status</th><th>Career</th><th>C-turns</th><th>Created</th><th>Completed</th><th></th></tr></thead>
+        <thead><tr><th>ID</th><th>Source</th><th>PID</th><th>By</th><th>Study</th><th>Rec</th><th>Cond</th><th>Status</th><th>Career</th><th>C-turns</th><th>Created</th><th>Completed</th><th></th></tr></thead>
         <tbody>
           {rows.map((r) => (
             <tr key={r.id}>
               <td><code className="id">{short(r.id)}</code></td>
               <td><SourceBadge pid={r.pid} /></td>
               <td className="muted">{r.pid || '—'}</td>
+              <td className="muted">{r.recruiter || '—'}</td>
               <td className="muted">{r.study || '—'}</td>
               <td>{r.rec || '—'}</td>
               <td>{r.condition}</td>
@@ -488,9 +504,15 @@ const LAUNCH_CELLS = [
   { key: 'custom', label: 'Custom combination', custom: true, prefix: 'X' },
 ];
 
+// Teammates who hand out recruit links. Saved on the session as `recruiter`
+// (admin-side attribution, orthogonal to the study cell), so recruitment can be
+// tracked per person in the dashboard + exports.
+const RECRUITERS = ['Andrea', 'Thy', 'Kaehl', 'Gleb'];
+
 function RecruitView() {
   const [cellKey, setCellKey] = useState('shared');
   const [custom, setCustom] = useState({ study: 'kangzhi', rec: 'direct', cond: 'main' });
+  const [recruiter, setRecruiter] = useState('');   // who's sending these links out
   const [count, setCount] = useState(5);
   const [prefix, setPrefix] = useState('S');
   const [start, setStart] = useState(1);
@@ -533,7 +555,7 @@ function RecruitView() {
         const pid = prefix.trim() ? prefix.trim().toUpperCase() + String(Number(start) + i).padStart(3, '0') : undefined;
         if (pid && existing.has(pid)) { skipped++; continue; }
         await api('/api/admin/sessions', { method: 'POST', body: JSON.stringify({
-          condition: axes.cond, rec: axes.rec, study: axes.study, pid,
+          condition: axes.cond, rec: axes.rec, study: axes.study, pid, recruiter: recruiter || undefined,
         }) });
         if (pid) existing.add(pid);
         made++;
@@ -578,7 +600,8 @@ function RecruitView() {
   const groupMap = {};
   for (const r of rows) {
     if (!r.pid) continue;
-    const label = `${r.study || '—'} · ${r.rec || '—'} × ${r.condition || '—'}`;
+    const who = r.recruiter ? `${r.recruiter} → ` : '';
+    const label = `${who}${r.study || '—'} · ${r.rec || '—'} × ${r.condition || '—'}`;
     (groupMap[label] = groupMap[label] || []).push({ id: r.id, pid: r.pid, link: recruitUrl(r), created: r.created_at || '', used: isUsed(r) });
   }
   const groups = Object.entries(groupMap).map(([label, links]) => {
@@ -601,7 +624,17 @@ function RecruitView() {
         the next PID number is taken from everyone's links, so two of you can recruit at once without clashing.
       </div>
       <div className="panel" style={{ marginBottom: 16 }}>
-        <h3>1 · Chatbot version</h3>
+        <h3>1 · Who's sending these links out</h3>
+        <div className="row" style={{ marginBottom: 4 }}>
+          {RECRUITERS.map((name) => (
+            <button key={name} className={'btn' + (recruiter === name ? ' pri' : '')}
+              onClick={() => setRecruiter(recruiter === name ? '' : name)}>{name}</button>
+          ))}
+          <button className={'btn' + (recruiter === '' ? ' pri' : '')} onClick={() => setRecruiter('')}>Unassigned</button>
+        </div>
+        <p className="muted" style={{ marginTop: 0 }}>
+          Tags every link you mint below with who's handing it out — shown in the groups here and in Sessions/exports. Doesn't change what the participant sees.</p>
+        <h3 style={{ marginTop: 14 }}>2 · Chatbot version</h3>
         <div className="row" style={{ marginBottom: 10 }}>
           {LAUNCH_CELLS.map((c) => (
             <button key={c.key} className={'btn' + (cellKey === c.key ? ' pri' : '')} onClick={() => pick(c)}>{c.label}</button>
@@ -628,7 +661,7 @@ function RecruitView() {
             Test drive this version ↗ <span className="muted">(no data saved)</span>
           </a>
         </div>
-        <h3 style={{ marginTop: 14 }}>2 · How many participants</h3>
+        <h3 style={{ marginTop: 14 }}>3 · How many participants</h3>
         <div className="row">
           <label>Links <input type="number" min="1" max="50" value={count} onChange={(e) => setCount(e.target.value)} style={{ width: 64 }} /></label>
           <label>PID prefix <input type="text" value={prefix} onChange={(e) => setPrefix(e.target.value)} style={{ width: 56 }} /></label>

@@ -48,7 +48,7 @@ const CSV_MEAN = (o, ids) => {
   return v.length ? (v.reduce((a, b) => a + b, 0) / v.length).toFixed(2) : '';
 };
 function studiesToCsv(studies) {
-  const cols = ['session_id', 'pid', 'study', 'rec', 'cond', 'status', 'created_at', 'completed_at', 'career', 'location', 'familiarity', 'interest_strength', 'c_duration_sec', 'c_turns', 'c_ended_by', 'free_turns', 'ios_pre', 'ios_post', 'fscs_pre_mean', 'fscs_post_mean', 'viv_pre_mean', 'viv_post_mean', 'cip_anxiety_pre_mean', 'cip_confidence_pre_mean', 'cip_anxiety_post_mean', 'cip_confidence_post_mean', 'mc_style', 'mc_scene', 'mc_understand'];
+  const cols = ['session_id', 'pid', 'recruiter', 'study', 'rec', 'cond', 'status', 'created_at', 'completed_at', 'career', 'location', 'familiarity', 'interest_strength', 'c_duration_sec', 'c_turns', 'c_ended_by', 'free_turns', 'ios_pre', 'ios_post', 'fscs_pre_mean', 'fscs_post_mean', 'viv_pre_mean', 'viv_post_mean', 'cip_anxiety_pre_mean', 'cip_confidence_pre_mean', 'cip_anxiety_post_mean', 'cip_confidence_post_mean', 'mc_style', 'mc_scene', 'mc_understand'];
   const esc = x => {
     const s = x == null ? '' : String(x);
     return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
@@ -60,7 +60,7 @@ function studiesToCsv(studies) {
       fc = s.freeContinuation || {};
     const pre = s.preSurvey || {},
       post = s.postSurvey || {};
-    return [meta.sessionId, meta.pid, meta.study, meta.rec, meta.condition, meta.status, meta.createdAt, meta.completedAt, pb.career, pb.location, pb.familiarity, pb.interestStrength, pc.durationSec, pc.turnCount, pc.endedBy, fc.turnCount, pre.ios_pre, post.ios_post, CSV_MEAN(pre, ['fscs_similar', 'fscs_connected']), CSV_MEAN(post, ['fscs_similar_post', 'fscs_connected_post']), CSV_MEAN(pre, ['viv_clear', 'viv_tangible', 'viv_detail', 'viv_felt']), CSV_MEAN(post, ['viv_clear_post', 'viv_tangible_post', 'viv_detail_post', 'viv_felt_post']), CSV_MEAN(pre, ['cip_ca_1', 'cip_ca_2', 'cip_ca_3']), CSV_MEAN(pre, ['cip_cf_1', 'cip_cf_2', 'cip_cf_3']), CSV_MEAN(post, ['cip_ca_1_post', 'cip_ca_2_post', 'cip_ca_3_post']), CSV_MEAN(post, ['cip_cf_1_post', 'cip_cf_2_post', 'cip_cf_3_post']), post.mc_style, post.mc_scene, post.mc_understand].map(esc).join(',');
+    return [meta.sessionId, meta.pid, meta.recruiter, meta.study, meta.rec, meta.condition, meta.status, meta.createdAt, meta.completedAt, pb.career, pb.location, pb.familiarity, pb.interestStrength, pc.durationSec, pc.turnCount, pc.endedBy, fc.turnCount, pre.ios_pre, post.ios_post, CSV_MEAN(pre, ['fscs_similar', 'fscs_connected']), CSV_MEAN(post, ['fscs_similar_post', 'fscs_connected_post']), CSV_MEAN(pre, ['viv_clear', 'viv_tangible', 'viv_detail', 'viv_felt']), CSV_MEAN(post, ['viv_clear_post', 'viv_tangible_post', 'viv_detail_post', 'viv_felt_post']), CSV_MEAN(pre, ['cip_ca_1', 'cip_ca_2', 'cip_ca_3']), CSV_MEAN(pre, ['cip_cf_1', 'cip_cf_2', 'cip_cf_3']), CSV_MEAN(post, ['cip_ca_1_post', 'cip_ca_2_post', 'cip_ca_3_post']), CSV_MEAN(post, ['cip_cf_1_post', 'cip_cf_2_post', 'cip_cf_3_post']), post.mc_style, post.mc_scene, post.mc_understand].map(esc).join(',');
   });
   return cols.join(',') + '\n' + rows.join('\n') + '\n';
 }
@@ -165,7 +165,7 @@ function SessionDetail({
     }
   }, "Created ", fmt(d.created_at), " \xB7 Completed ", fmt(d.completed_at)), meta.pid ? React.createElement("div", {
     className: "note real"
-  }, React.createElement("b", null, "Real participant data"), " \u2014 recruited via a generated link. Version: study=", React.createElement("b", null, meta.study || '—'), " \xB7 rec=", React.createElement("b", null, meta.rec || '—'), " \xB7 cond=", React.createElement("b", null, d.condition || '—'), " \xB7 PID ", React.createElement("b", null, meta.pid)) : React.createElement("div", {
+  }, React.createElement("b", null, "Real participant data"), " \u2014 recruited via a generated link. Version: study=", React.createElement("b", null, meta.study || '—'), " \xB7 rec=", React.createElement("b", null, meta.rec || '—'), " \xB7 cond=", React.createElement("b", null, d.condition || '—'), " \xB7 PID ", React.createElement("b", null, meta.pid), meta.recruiter ? React.createElement("span", null, " \xB7 sent by ", React.createElement("b", null, meta.recruiter)) : null) : React.createElement("div", {
     className: "note"
   }, React.createElement("b", null, "Ad-hoc / test session"), " \u2014 no participant link (PID). Version: study=", React.createElement("b", null, meta.study || '—'), " \xB7 rec=", React.createElement("b", null, meta.rec || '—'), " \xB7 cond=", React.createElement("b", null, d.condition || '—')), React.createElement("div", {
     className: "muted",
@@ -287,6 +287,7 @@ function NewSession({
   const [rec, setRec] = useState('direct');
   const [study, setStudy] = useState('kangzhi');
   const [pid, setPid] = useState('');
+  const [recruiter, setRecruiter] = useState('');
   const [link, setLink] = useState(null);
   const create = async () => {
     const d = await api('/api/admin/sessions', {
@@ -295,7 +296,8 @@ function NewSession({
         condition: condition || undefined,
         rec,
         study: study || undefined,
-        pid: pid || undefined
+        pid: pid || undefined,
+        recruiter: recruiter || undefined
       })
     });
     setLink({
@@ -303,6 +305,7 @@ function NewSession({
       condition: d.condition,
       rec: d.rec,
       study: d.study,
+      recruiter: d.recruiter,
       id: d.id
     });
     onCreated && onCreated();
@@ -364,10 +367,27 @@ function NewSession({
     style: {
       width: 90
     }
-  })), React.createElement("button", {
+  }))), React.createElement("div", {
+    className: "row",
+    style: {
+      marginBottom: 10,
+      alignItems: 'center'
+    }
+  }, React.createElement("span", {
+    className: "muted",
+    style: {
+      fontSize: 13
+    }
+  }, "Sent by"), RECRUITERS.map(name => React.createElement("button", {
+    key: name,
+    className: 'btn' + (recruiter === name ? ' pri' : ''),
+    onClick: () => setRecruiter(recruiter === name ? '' : name)
+  }, name)), React.createElement("div", {
+    className: "spacer"
+  }), React.createElement("button", {
     className: "btn pri",
     onClick: create
-  }, "Create & get link"))) : React.createElement("div", null, React.createElement("p", null, link.study, " \xB7 rec ", React.createElement("b", null, link.rec), " \xB7 cond ", React.createElement("b", null, link.condition), " \xB7 id ", React.createElement("code", {
+  }, "Create & get link"))) : React.createElement("div", null, React.createElement("p", null, link.recruiter ? React.createElement("span", null, "sent by ", React.createElement("b", null, link.recruiter), " \xB7 ") : null, link.study, " \xB7 rec ", React.createElement("b", null, link.rec), " \xB7 cond ", React.createElement("b", null, link.condition), " \xB7 id ", React.createElement("code", {
     className: "id"
   }, short(link.id))), React.createElement("div", {
     className: "link-box"
@@ -389,6 +409,7 @@ function SessionsView() {
   const [rows, setRows] = useState([]);
   const [condition, setCondition] = useState('');
   const [status, setStatus] = useState('');
+  const [recruiter, setRecruiter] = useState('');
   const [open, setOpen] = useState(null);
   const [creating, setCreating] = useState(false);
   const [err, setErr] = useState(null);
@@ -396,8 +417,9 @@ function SessionsView() {
     const q = new URLSearchParams();
     if (condition) q.set('condition', condition);
     if (status) q.set('status', status);
+    if (recruiter) q.set('recruiter', recruiter);
     api('/api/admin/sessions?' + q.toString()).then(setRows).catch(e => setErr(e.message));
-  }, [condition, status]);
+  }, [condition, status, recruiter]);
   useEffect(() => {
     load();
   }, [load]);
@@ -435,7 +457,16 @@ function SessionsView() {
     value: "completed"
   }, "completed"), React.createElement("option", {
     value: "abandoned"
-  }, "abandoned")), React.createElement("button", {
+  }, "abandoned")), React.createElement("select", {
+    value: recruiter,
+    onChange: e => setRecruiter(e.target.value),
+    title: "Filter by who handed out the link"
+  }, React.createElement("option", {
+    value: ""
+  }, "All recruiters"), RECRUITERS.map(name => React.createElement("option", {
+    key: name,
+    value: name
+  }, name))), React.createElement("button", {
     className: "btn",
     onClick: load
   }, "Refresh"), React.createElement("div", {
@@ -456,7 +487,7 @@ function SessionsView() {
     onClick: () => {
       location.href = '/api/admin/sessions/export?deidentify=1';
     }
-  }, "Export de-identified")), React.createElement("table", null, React.createElement("thead", null, React.createElement("tr", null, React.createElement("th", null, "ID"), React.createElement("th", null, "Source"), React.createElement("th", null, "PID"), React.createElement("th", null, "Study"), React.createElement("th", null, "Rec"), React.createElement("th", null, "Cond"), React.createElement("th", null, "Status"), React.createElement("th", null, "Career"), React.createElement("th", null, "C-turns"), React.createElement("th", null, "Created"), React.createElement("th", null, "Completed"), React.createElement("th", null))), React.createElement("tbody", null, rows.map(r => React.createElement("tr", {
+  }, "Export de-identified")), React.createElement("table", null, React.createElement("thead", null, React.createElement("tr", null, React.createElement("th", null, "ID"), React.createElement("th", null, "Source"), React.createElement("th", null, "PID"), React.createElement("th", null, "By"), React.createElement("th", null, "Study"), React.createElement("th", null, "Rec"), React.createElement("th", null, "Cond"), React.createElement("th", null, "Status"), React.createElement("th", null, "Career"), React.createElement("th", null, "C-turns"), React.createElement("th", null, "Created"), React.createElement("th", null, "Completed"), React.createElement("th", null))), React.createElement("tbody", null, rows.map(r => React.createElement("tr", {
     key: r.id
   }, React.createElement("td", null, React.createElement("code", {
     className: "id"
@@ -465,6 +496,8 @@ function SessionsView() {
   })), React.createElement("td", {
     className: "muted"
   }, r.pid || '—'), React.createElement("td", {
+    className: "muted"
+  }, r.recruiter || '—'), React.createElement("td", {
     className: "muted"
   }, r.study || '—'), React.createElement("td", null, r.rec || '—'), React.createElement("td", null, r.condition), React.createElement("td", null, React.createElement(Pill, {
     s: r.status
@@ -842,6 +875,7 @@ const LAUNCH_CELLS = [{
   custom: true,
   prefix: 'X'
 }];
+const RECRUITERS = ['Andrea', 'Thy', 'Kaehl', 'Gleb'];
 function RecruitView() {
   const [cellKey, setCellKey] = useState('shared');
   const [custom, setCustom] = useState({
@@ -849,6 +883,7 @@ function RecruitView() {
     rec: 'direct',
     cond: 'main'
   });
+  const [recruiter, setRecruiter] = useState('');
   const [count, setCount] = useState(5);
   const [prefix, setPrefix] = useState('S');
   const [start, setStart] = useState(1);
@@ -914,7 +949,8 @@ function RecruitView() {
             condition: axes.cond,
             rec: axes.rec,
             study: axes.study,
-            pid
+            pid,
+            recruiter: recruiter || undefined
           })
         });
         if (pid) existing.add(pid);
@@ -968,7 +1004,8 @@ function RecruitView() {
   const groupMap = {};
   for (const r of rows) {
     if (!r.pid) continue;
-    const label = `${r.study || '—'} · ${r.rec || '—'} × ${r.condition || '—'}`;
+    const who = r.recruiter ? `${r.recruiter} → ` : '';
+    const label = `${who}${r.study || '—'} · ${r.rec || '—'} × ${r.condition || '—'}`;
     (groupMap[label] = groupMap[label] || []).push({
       id: r.id,
       pid: r.pid,
@@ -1001,7 +1038,28 @@ function RecruitView() {
     style: {
       marginBottom: 16
     }
-  }, React.createElement("h3", null, "1 \xB7 Chatbot version"), React.createElement("div", {
+  }, React.createElement("h3", null, "1 \xB7 Who's sending these links out"), React.createElement("div", {
+    className: "row",
+    style: {
+      marginBottom: 4
+    }
+  }, RECRUITERS.map(name => React.createElement("button", {
+    key: name,
+    className: 'btn' + (recruiter === name ? ' pri' : ''),
+    onClick: () => setRecruiter(recruiter === name ? '' : name)
+  }, name)), React.createElement("button", {
+    className: 'btn' + (recruiter === '' ? ' pri' : ''),
+    onClick: () => setRecruiter('')
+  }, "Unassigned")), React.createElement("p", {
+    className: "muted",
+    style: {
+      marginTop: 0
+    }
+  }, "Tags every link you mint below with who's handing it out \u2014 shown in the groups here and in Sessions/exports. Doesn't change what the participant sees."), React.createElement("h3", {
+    style: {
+      marginTop: 14
+    }
+  }, "2 \xB7 Chatbot version"), React.createElement("div", {
     className: "row",
     style: {
       marginBottom: 10
@@ -1064,7 +1122,7 @@ function RecruitView() {
     style: {
       marginTop: 14
     }
-  }, "2 \xB7 How many participants"), React.createElement("div", {
+  }, "3 \xB7 How many participants"), React.createElement("div", {
     className: "row"
   }, React.createElement("label", null, "Links ", React.createElement("input", {
     type: "number",

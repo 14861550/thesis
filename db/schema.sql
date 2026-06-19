@@ -41,8 +41,13 @@ ALTER TABLE sessions ADD COLUMN IF NOT EXISTS rec   text NOT NULL DEFAULT 'guide
 ALTER TABLE sessions ADD COLUMN IF NOT EXISTS study text NOT NULL DEFAULT 'kangzhi';
 ALTER TABLE sessions ADD COLUMN IF NOT EXISTS pid   text;
 ALTER TABLE sessions ADD COLUMN IF NOT EXISTS free_continuation jsonb NOT NULL DEFAULT '{}'::jsonb;
+-- Recruiter / "sent by": which teammate distributed this link. Orthogonal to the
+-- study cell (e.g. Gleb can hand out a link for the shared cell). Admin-set at
+-- link creation; null for ad-hoc / self-made sessions.
+ALTER TABLE sessions ADD COLUMN IF NOT EXISTS recruiter text;
 CREATE INDEX IF NOT EXISTS sessions_rec_idx   ON sessions (rec);
 CREATE INDEX IF NOT EXISTS sessions_study_idx ON sessions (study);
+CREATE INDEX IF NOT EXISTS sessions_recruiter_idx ON sessions (recruiter);
 CREATE INDEX IF NOT EXISTS sessions_pid_idx   ON sessions (pid);
 
 CREATE TABLE IF NOT EXISTS messages (
