@@ -15,6 +15,29 @@ explicit instruction from Kangzhi that supersedes the v5.1 as-built text.
 
 ## §6 Conditions / routing
 
+- **(2026-06-19) Andrea's two stage-B core prompts corrected to the confirmed doc**
+  [USER-ORDERED]. The `direct` and `reflective` builders (`lib/prompt.js`
+  `buildPhaseBDirect` / `buildPhaseBReflective`) now reproduce the two CORE prompts
+  verbatim from the confirmed *Prompts for Phase b* document (an earlier add of the
+  prompt feature had used the wrong core versions). The study additions are kept on
+  top of each, unchanged: the silent `{PROFILE_BLOCK}` is filled from the pre-survey
+  (`formatProfile`), and `futureHorizonB()` adds the ten-year-horizon framing for the
+  five suggestions. **The stage-B location-negotiation step is now part of the
+  confirmed core itself (direct Step 4 / reflective Step 6)** — so location is
+  negotiated in-chat for BOTH Andrea arms again (this supersedes the 2026-06-11 note
+  below that location had dropped out of the stage-B flow). The `direct` core now
+  opens with no confirmation question and a silent five-dimension O*NET scoring pass;
+  the `reflective` core uses 3–4 one-at-a-time reflective exchanges before the cards.
+- **(2026-06-19) Separate results-share token removed** [USER-ORDERED]. The `/results`
+  supervisor surface is now gated by `ADMIN_TOKEN` alone (the admin token is enough).
+  Dropped: `RESULTS_TOKEN` env handling, the DB-backed `app_config` token +
+  `getConfig`/`setConfig`/`getEffectiveResultsToken` (`lib/db.js`), the
+  `/api/admin/results-token` route, the admin "Supervisor results link" panel, and the
+  `set_railway_results_token.sh` helper. `lib/results_routes.js` now also accepts an
+  existing `admin_token` cookie, so a logged-in admin opens `/results` without
+  re-entering the token. The view itself is unchanged: still read-only, de-identified,
+  and name-stripped (P01…).
+
 - **(2026-06-11) Default `rec` = `reflective`** [USER-ORDERED] [DEPLOYED]. Andrea's
   reflective prompt is the working stage-B design for ALL cells; Kangzhi's guide is a
   backup selectable via `rec=guide`. Changed in: URL default (`app.jsx readRec`),
