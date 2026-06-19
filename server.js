@@ -71,13 +71,31 @@ const sessions = new Map();
 const BREVITY_REMINDER =
   'LENGTH — STRICT (overrides the length guidance above). Default reply = 1–2 sentences (~30 words). Even for a real, open question, STOP by ~90 words — most answers should be ~40–60. Vary hard: each reply a CLEARLY different length from your last one or two; never two medium paragraphs in a row; if you can answer in one vivid line, do. Brevity beats completeness. End with at most ONE question, only when it follows naturally and is bridged in — never dropped in cold.';
 
+// Phase-C MAIN only (NOT baseline — the minimal control deliberately has no
+// mirroring instruction, and voice-matching is part of the main condition's
+// closeness mechanism, so keeping it main-only also sharpens the intended
+// contrast). Re-asserted every turn for the same reason as BREVITY: the long
+// COMPONENT 1 mirroring rule, buried high in the system prompt, loses to
+// gpt-5.1's instinct to write clean, capitalised prose as the chat grows —
+// live-tested, the future self stopped matching an all-lowercase user. This
+// trailing, most-recent reminder restores it BOTH ways (lowercase→lowercase,
+// formal→formal), verified on gpt-5.1 2026-06-19.
+const STYLE_REMINDER =
+  "VOICE — MATCH HOW THEY TYPE, FRESH EACH TURN. Read the user's LAST message and mirror its register. If that message uses normal capital letters and full punctuation, you write the same way — clean, properly capitalised sentences. If instead it is all-lowercase with loose punctuation (e.g. \"heyy hows the money honestly\"), then you reply all-lowercase and loose too, and do NOT tidy it into Capitalised, fully-punctuated sentences. Same with slang: use \"u\", \"idk\", \"lol\", \"ngl\" back only when they do. You are them, ten years on — you would text in their register, whatever it is. Don't lock into one style; re-read each message and follow THEIR lead.";
+
+/** Trailing system reminders, in order, for a given turn (most-recent wins). */
+function trailers({ remind = false, style = false } = {}) {
+  return [remind && BREVITY_REMINDER, style && STYLE_REMINDER].filter(Boolean);
+}
+
 /** Call the configured model with a system prompt + history; return assistant text. */
-async function complete(systemPrompt, messages, { remind = false } = {}) {
-  if (USE_PROXY) return completeOpenAI(systemPrompt, messages, { remind });
+async function complete(systemPrompt, messages, opts = {}) {
+  if (USE_PROXY) return completeOpenAI(systemPrompt, messages, opts);
+  const extra = trailers(opts);
   const res = await anthropic.messages.create({
     model: MODEL,
     max_tokens: MAX_TOKENS,
-    system: remind ? `${systemPrompt}\n\n${BREVITY_REMINDER}` : systemPrompt,
+    system: extra.length ? `${systemPrompt}\n\n${extra.join('\n\n')}` : systemPrompt,
     messages,
   });
   return res.content.filter((b) => b.type === 'text').map((b) => b.text).join('').trim();
@@ -85,16 +103,17 @@ async function complete(systemPrompt, messages, { remind = false } = {}) {
 
 /** OpenAI-compatible chat-completions (UvA proxy). Retries 429/5xx with backoff;
  *  auth failures surface immediately (not retried). */
-async function completeOpenAI(systemPrompt, messages, { remind = false } = {}) {
+async function completeOpenAI(systemPrompt, messages, opts = {}) {
   const body = {
     model: MODEL,
-    // The trailing system reminder rides at the END of the turn list so it is
-    // the most recent instruction the model sees (recency beats a rule buried
-    // in a long system prompt). Call-time only — never stored in the session.
+    // The trailing system reminder(s) ride at the END of the turn list so they
+    // are the most recent instructions the model sees (recency beats a rule
+    // buried in a long system prompt). Call-time only — never stored in the
+    // session.
     messages: [
       { role: 'system', content: systemPrompt },
       ...messages,
-      ...(remind ? [{ role: 'system', content: BREVITY_REMINDER }] : []),
+      ...trailers(opts).map((content) => ({ role: 'system', content })),
     ],
     temperature: TEMPERATURE,
     max_tokens: MAX_TOKENS,
@@ -130,13 +149,15 @@ async function completeOpenAI(systemPrompt, messages, { remind = false } = {}) {
   throw new Error(`model unavailable after retries (${lastErr})`);
 }
 
-/** Create a session, seed it with a nudge, fetch the opener, return {sessionId, opening}. */
-async function openSession(phase, systemPrompt, nudge) {
+/** Create a session, seed it with a nudge, fetch the opener, return {sessionId, opening}.
+ *  `style` (phase-C main only) adds the per-turn voice-mirroring reminder and is
+ *  persisted on the session so every later turn re-asserts it. */
+async function openSession(phase, systemPrompt, nudge, { style = false } = {}) {
   const messages = [{ role: 'user', content: nudge }];
-  const opening = await complete(systemPrompt, messages, { remind: phase === 'c' });
+  const opening = await complete(systemPrompt, messages, { remind: phase === 'c', style });
   messages.push({ role: 'assistant', content: opening });
   const sessionId = crypto.randomUUID();
-  sessions.set(sessionId, { phase, systemPrompt, messages });
+  sessions.set(sessionId, { phase, systemPrompt, messages, style });
   return { sessionId, opening };
 }
 
@@ -217,9 +238,12 @@ app.post('/api/phase-c/session', async (req, res) => {
     // Condition routing (Status Brief §3.3 / Build Plan §6): MAIN gets the full
     // profile + phase-b carry-over + location; BASELINE gets ONLY the chosen
     // career name + location (the chosen scenario is shared; the profile is not).
-    const systemPrompt = condition === 'baseline'
+    const isBaseline = condition === 'baseline';
+    const systemPrompt = isBaseline
       ? buildBaselinePrompt(profileData.career, location)
       : buildSystemPrompt(profileData, phaseBNotes, location);
+    // Voice-mirroring reminder is MAIN-only (baseline minimal control unchanged).
+    const style = !isBaseline;
     // RESUME of an interrupted role-play: the saved transcript is replayed into
     // the model's history so the future self remembers the earlier conversation.
     //  - silentResume: reconnection after a lost server session (e.g. a server
@@ -232,16 +256,16 @@ app.post('/api/phase-c/session', async (req, res) => {
         .map((m) => ({ role: m.role === 'user' ? 'user' : 'assistant', content: m.text }));
       const sessionId = crypto.randomUUID();
       if (silentResume) {
-        sessions.set(sessionId, { phase: 'c', systemPrompt, messages });
+        sessions.set(sessionId, { phase: 'c', systemPrompt, messages, style });
         return res.json({ sessionId, resumed: true, opening: null });
       }
       messages.push({ role: 'user', content: PHASE_C_RESUME_NUDGE });
-      const opening = await complete(systemPrompt, messages, { remind: true });
+      const opening = await complete(systemPrompt, messages, { remind: true, style });
       messages.push({ role: 'assistant', content: opening });
-      sessions.set(sessionId, { phase: 'c', systemPrompt, messages });
+      sessions.set(sessionId, { phase: 'c', systemPrompt, messages, style });
       return res.json({ sessionId, opening, resumed: true });
     }
-    const out = await openSession('c', systemPrompt, PHASE_C_NUDGE);
+    const out = await openSession('c', systemPrompt, PHASE_C_NUDGE, { style });
     res.json(out);
   } catch (err) {
     console.error('POST /api/phase-c/session failed:', err?.message || err);
@@ -283,7 +307,7 @@ app.post('/api/chat', async (req, res) => {
 
   session.messages.push({ role: 'user', content: text });
   try {
-    const reply = await complete(session.systemPrompt, session.messages, { remind: session.phase === 'c' });
+    const reply = await complete(session.systemPrompt, session.messages, { remind: session.phase === 'c', style: !!session.style });
     session.messages.push({ role: 'assistant', content: reply });
     // Phase B proposes five career directions as a structured block -> cards.
     if (session.phase === 'b') {
@@ -309,7 +333,7 @@ app.post('/api/regenerate', async (req, res) => {
   }
   const popped = session.messages.pop();
   try {
-    const reply = await complete(session.systemPrompt, session.messages, { remind: session.phase === 'c' });
+    const reply = await complete(session.systemPrompt, session.messages, { remind: session.phase === 'c', style: !!session.style });
     session.messages.push({ role: 'assistant', content: reply });
     // Symmetry with /api/chat: a regenerated phase-B turn can carry the card
     // block, so extract it rather than leak raw JSON. (Phase B doesn't expose
