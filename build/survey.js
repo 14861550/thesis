@@ -519,7 +519,7 @@ function buildPreSections(answers, onChange) {
     title: 'Picture that future you',
     intro: 'The next questions are about your future self — the person you will be about 10 years from now. Take a moment for this one — there is nothing to answer here, just a minute to imagine.',
     ids: [],
-    skip: true,
+    holdSeconds: 20,
     node: React.createElement(ImagineSequence, {
       lines: ["It is an ordinary weekday about ten years from now. Picture waking up — where are you? Whose voice, if anyone's, do you hear first? Notice the room, the light coming in, what is already on your mind before the day has properly started.", "Now you are at work, whatever that work has turned out to be. What is in front of you this morning? Who is around — people you work with, people you are helping, someone you are still learning from? Sit for a second with what it feels like to be genuinely good at something you spent years growing into.", "It is evening now. The day is behind you. Where are you, who are you with, and how do you feel as it winds down?"],
       closing: "Stay with that person for a moment. They are who the next question is about."
@@ -583,7 +583,7 @@ function buildPostSections(answers, onChange, career) {
     title: 'Picture that future you, once more',
     intro: 'Before the last questions, take one more moment with your future self — the person you have just been speaking with, about 10 years from now. There is nothing to answer here, just a minute to picture them again.',
     ids: [],
-    skip: true,
+    holdSeconds: 20,
     node: React.createElement(ImagineSequence, {
       lines: ["Bring that future self back to mind — the same person you just spoke with, on an ordinary weekday about ten years from now. Picture them waking up: where are they, what does the light in the room feel like, what is already on their mind before the day has properly started?", "Now picture the work you talked about together. What is in front of them this morning? Who is around — people they work with, people they are helping, someone they are still learning from? Sit for a second with what it feels like to be that person, genuinely good at something they spent years growing into.", "It is evening now, the day behind them. Where are they, who are they with, and how do they feel as it winds down?"],
       closing: "Stay with that person for a moment. The next questions are about them."
@@ -730,7 +730,6 @@ function PagedSurvey({
   };
   const s = sections[Math.min(page, sections.length - 1)];
   const holdFor = sec => {
-    if (isPreview) return 0;
     if (typeof window !== 'undefined' && window.THESIS_TEST_NO_HOLD) return 0;
     return sec || 0;
   };
@@ -816,10 +815,10 @@ function PagedSurvey({
       gap: 8,
       alignItems: 'center'
     }
-  }, s.skip && React.createElement("button", {
+  }, isPreview && !heldEnough && React.createElement("button", {
     className: "btn ghost",
     onClick: next
-  }, "Skip"), React.createElement("button", {
+  }, "Skip the wait"), React.createElement("button", {
     className: "btn accent",
     disabled: !complete,
     onClick: next

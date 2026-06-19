@@ -388,12 +388,15 @@ function buildPreSections(answers, onChange) {
     },
     {
       // Standalone "imagine your future self" page (Build Plan v5.3 §0.0b(c)),
-      // immediately before the future-self mediator block. Non-blocking: offers
-      // both Continue and Skip; nothing here is recorded as an outcome.
+      // immediately before the future-self mediator block. A 20-second timed hold
+      // (restored 2026-06-19 at Kangzhi's request — supersedes the §7.3 skippable
+      // version) keeps the participant with the imagination before the closeness
+      // measure. It runs in preview too (with a one-click "Skip the wait"); only
+      // the headless tests bypass it. Nothing here is recorded as an outcome.
       title: 'Picture that future you',
       intro: 'The next questions are about your future self — the person you will be about 10 years from now. Take a moment for this one — there is nothing to answer here, just a minute to imagine.',
       ids: [],
-      skip: true,
+      holdSeconds: 20,
       node: (
         <ImagineSequence
           lines={[
@@ -458,12 +461,13 @@ function buildPostSections(answers, onChange, career) {
       // structured imagination, so the post measure gets a parallel one —
       // otherwise the pre/post ratings would differ in measurement context, not
       // only in the conversation that happened between them. Worded for *after*
-      // the role-play (they have now met this person), and non-blocking
-      // (Continue + Skip) like the pre page; nothing here is recorded.
+      // the role-play (they have now met this person), and carries the same
+      // 20-second timed hold as the pre page (restored 2026-06-19); nothing here
+      // is recorded.
       title: 'Picture that future you, once more',
       intro: 'Before the last questions, take one more moment with your future self — the person you have just been speaking with, about 10 years from now. There is nothing to answer here, just a minute to picture them again.',
       ids: [],
-      skip: true,
+      holdSeconds: 20,
       node: (
         <ImagineSequence
           lines={[
@@ -592,10 +596,11 @@ function PagedSurvey({ sections, answers, onChange, onDone, onBack, eyebrow, sto
 
   // Optional timed "hold" gate (supervisor feedback, 14 Jun 2026): a page can
   // ask the participant to sit with a prompt for a few seconds before the
-  // Continue button unlocks — used for the future-self imagination page.
-  // Skipped in researcher preview and in the headless flow test (no real wait).
+  // Continue button unlocks — used for the future-self imagination pages.
+  // The hold runs in BOTH real and preview runs (so a researcher test-drive shows
+  // the real experience — preview gets a one-click "Skip the wait" below so it is
+  // not forced to sit 20s every time); only the headless tests bypass it.
   const holdFor = (sec) => {
-    if (isPreview) return 0;
     if (typeof window !== 'undefined' && window.THESIS_TEST_NO_HOLD) return 0;
     return sec || 0;
   };
@@ -649,7 +654,7 @@ function PagedSurvey({ sections, answers, onChange, onDone, onBack, eyebrow, sto
         ) : <span />}
         <span className="step-label">{page + 1} OF {sections.length}</span>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          {s.skip && <button className="btn ghost" onClick={next}>Skip</button>}
+          {isPreview && !heldEnough && <button className="btn ghost" onClick={next}>Skip the wait</button>}
           <button className="btn accent" disabled={!complete} onClick={next}>
             {!heldEnough ? `Take a moment… ${remaining}s` : (isLast ? 'Done' : 'Continue')}
             <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M3 6.5h7M6.5 3l4 3.5-4 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>

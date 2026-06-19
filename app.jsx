@@ -236,7 +236,22 @@ function App() {
   const setPost = (id, v) => setPostAnswers(prev => ({ ...prev, [id]: v }));
 
   // Structured profile for the prompts; career/ratings get added after Phase B.
-  const baseProfile = buildProfileData(preAnswers);
+  // In a researcher PREVIEW the survey is skipped, so the profile would be empty —
+  // and the stage-B guide (especially the DIRECT arm, which builds the five cards
+  // from RIASEC / Big-Five / values / major) then has nothing to work with and
+  // asks for the basics instead of presenting cards. Seed a representative sample
+  // profile for the preview-with-empty-survey case so the test drive shows the
+  // real "jump straight to five cards" experience. Real participants always reach
+  // here with a completed survey, so this never affects a real run.
+  const PREVIEW_SAMPLE = {
+    year: '3rd year', demographics: { age: 22, gender: 'female', major: 'Psychology' },
+    bigFive: { O: 5.5, C: 4.5, E: 3.5, A: 6, ES: 4.5 },
+    values: ['Helping others', 'Achievement', 'Independence'],
+    riasec: { R: 2, I: 6, A: 4, S: 6, E: 3, C: 2 },
+  };
+  const baseProfile = (preview && !(preAnswers.major || '').trim())
+    ? PREVIEW_SAMPLE
+    : buildProfileData(preAnswers);
   const fullProfile = phaseB
     ? { ...baseProfile, career: phaseB.career, familiarity: phaseB.familiarity, interestStrength: phaseB.interestStrength }
     : baseProfile;

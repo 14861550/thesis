@@ -252,7 +252,31 @@ function App() {
     ...prev,
     [id]: v
   }));
-  const baseProfile = buildProfileData(preAnswers);
+  const PREVIEW_SAMPLE = {
+    year: '3rd year',
+    demographics: {
+      age: 22,
+      gender: 'female',
+      major: 'Psychology'
+    },
+    bigFive: {
+      O: 5.5,
+      C: 4.5,
+      E: 3.5,
+      A: 6,
+      ES: 4.5
+    },
+    values: ['Helping others', 'Achievement', 'Independence'],
+    riasec: {
+      R: 2,
+      I: 6,
+      A: 4,
+      S: 6,
+      E: 3,
+      C: 2
+    }
+  };
+  const baseProfile = preview && !(preAnswers.major || '').trim() ? PREVIEW_SAMPLE : buildProfileData(preAnswers);
   const fullProfile = phaseB ? {
     ...baseProfile,
     career: phaseB.career,
