@@ -16,8 +16,9 @@ if (!dbEnabled) {
 
 await initSchema();
 
-const created = await createSession({ condition: 'main' });
+const created = await createSession({ condition: 'main', recruiter: 'Gleb' });
 assert.ok(created.id, 'createSession returns id');
+assert.equal(created.recruiter, 'Gleb', 'createSession stores recruiter');
 const id = created.id;
 
 await saveSession(id, {
@@ -39,6 +40,7 @@ const row = await getSessionRow(id);
 const study = reconstructStudy(row);
 assert.equal(study.phaseB.career, 'Data analyst', 'career persisted');
 assert.equal(study.postSurvey.fscs_care_post, 6, 'post value persisted');
+assert.equal(study.meta.recruiter, 'Gleb', 'recruiter in reconstructed meta');
 
 const msgs = await getMessages(id);
 const bCount = msgs.filter((m) => m.phase === 'b').length;
@@ -49,6 +51,9 @@ console.log(`✓ fetch + ${bCount} phase-b / ${cCount} phase-c messages derived`
 
 const listed = await listSessions({ status: 'completed' });
 assert.ok(listed.some((r) => r.id === id), 'appears in completed list');
+assert.equal(listed.find((r) => r.id === id).recruiter, 'Gleb', 'listSessions returns recruiter');
+assert.ok((await listSessions({ recruiter: 'Gleb' })).some((r) => r.id === id), 'recruiter filter includes the session');
+assert.ok((await listSessions({ recruiter: 'Nobody' })).every((r) => r.id !== id), 'recruiter filter excludes non-matches');
 
 const exp = await exportStudies({ deidentify: true, status: 'completed' });
 const mine = exp.find((s) => s.meta.sessionId === id);
