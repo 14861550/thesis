@@ -1,0 +1,12 @@
+# Reproducibility package — pinned-ish, tested on Python 3.11
+numpy>=1.26
+pandas>=2.0
+scipy>=1.11
+statsmodels>=0.14
+matplotlib>=3.7
+# optional: only needed for the live direct-PostgreSQL path (the notebook also
+# works through the HTTPS export and the bundled snapshot without it)
+psycopg2-binary>=2.9
+# optional: only needed to re-parse the raw coding-pack .xlsx (a quote-free
+# parsed copy is shipped, so this is not required to reproduce the figures)
+openpyxl>=3.1

@@ -18,3 +18,11 @@ eval_pipeline/out/
 data/*.csv
 data/*.zip
 shots/
+
+# Local credentials for the reproducibility notebook (never commit)
+.env.local
+reproducibility/.env.local
+*.env.local
+
+# Notebook checkpoints
+.ipynb_checkpoints/
