@@ -55,8 +55,7 @@ the metrics code is reused unchanged.
 | `MODEL_ID` | optional | Override the chat model id (default `gpt-5.1` on the proxy, `claude-sonnet-4-6` on the fallback) |
 | `ANTHROPIC_API_KEY` | fallback chat + eval | Used for chat only when the proxy vars are unset; always used by the eval pipeline / silicon runs |
 | `DATABASE_URL` | optional | Postgres. Unset → in-memory mode, admin disabled |
-| `ADMIN_TOKEN` | optional | Shared secret gating `/admin`. Unset → admin disabled (503) |
-| `RESULTS_TOKEN` | optional | Read-only share link for `/results` (anonymized). Unset → `/results` falls back to `ADMIN_TOKEN` |
+| `ADMIN_TOKEN` | optional | Shared secret gating `/admin` **and** the read-only `/results` page. Unset → both disabled (503) |
 | `PORT` | optional | Default 3000 |
 | `DATABASE_SSL` | optional | `disable` to force-off SSL (remote DBs use SSL automatically) |
 | `PYTHON_BIN` | optional | Interpreter for eval runs (default `python3`) |
@@ -109,9 +108,10 @@ by `/admin/login`, or `?token=`). **Minimal by design** — no user accounts.
 
 ---
 
-## Results page (`/results`, read-only, gated by `RESULTS_TOKEN`)
-A supervisor-facing, **anonymized** surface — share the link without granting
-admin powers. Names are replaced with labels (P01, P02…); it can only read.
+## Results page (`/results`, read-only, gated by `ADMIN_TOKEN`)
+A supervisor-facing, **anonymized** surface. Names are replaced with labels
+(P01, P02…); it can only read. Gated by `ADMIN_TOKEN` (there is no separate
+results token — sharing `/results` means sharing that token).
 - **Overview** — sessions collected so far (by condition/career) and mean pre→post
   Δ per IBM outcome (continuity / vividness / closeness). Descriptive pilot only.
 - **RQ results** — judge↔human agreement (MAE / Spearman ρ / QWK / ICC / inter-run
@@ -121,8 +121,8 @@ admin powers. Names are replaced with labels (P01, P02…); it can only read.
 - **Browse sessions** — every completed session, anonymized, with scores, both
   transcripts, and pre→post answers.
 
-Auth: `RESULTS_TOKEN` (or `ADMIN_TOKEN`) via `?token=` → httpOnly `results_token`
-cookie. All `/api/results/*` payloads are de-identified + name-stripped.
+Auth: `ADMIN_TOKEN` via `?token=` → httpOnly `results_token` cookie. All
+`/api/results/*` payloads are de-identified + name-stripped.
 
 ---
 
@@ -167,15 +167,15 @@ at this scale.
    automatically for remote hosts).
 3. **Env:** set `LLM_BASE_URL` + `UVA_API_TOKEN` (+ `MODEL_ID=gpt-5.1`) for the
    study chat — or `ANTHROPIC_API_KEY` as the fallback (also needed for eval
-   runs); `ADMIN_TOKEN` (long random), `RESULTS_TOKEN` (long random, distinct —
-   the read-only supervisor link), and optionally `PYTHON_BIN=python3`. Do
-   **not** set `PORT` (Railway injects it). Verify `/healthz` after deploy.
+   runs); `ADMIN_TOKEN` (long random — also gates the read-only `/results`
+   supervisor view), and optionally `PYTHON_BIN=python3`. Do **not** set `PORT`
+   (Railway injects it). Verify `/healthz` after deploy.
 4. Deploys are triggered by pushing to the connected GitHub repo; the schema
    (incl. the new `simulations` table) applies itself on boot.
 
 > **Rotate any previously-exposed secrets** (`ANTHROPIC_API_KEY`, the Postgres
-> password in `DATABASE_URL`, `ADMIN_TOKEN`) and set a fresh `RESULTS_TOKEN`.
-> Secrets belong only in Railway env vars, never in the repo.
+> password in `DATABASE_URL`, `ADMIN_TOKEN`). Secrets belong only in Railway env
+> vars, never in the repo.
 
 ---
 

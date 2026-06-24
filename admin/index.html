@@ -654,34 +654,6 @@ const LAUNCH_CELLS = [
   { key: 'custom', label: 'Custom combination', custom: true, prefix: 'X' },
 ];
 
-// Read-only supervisor results link, fetched from the server so the whole team
-// sees the same token (env RESULTS_TOKEN if set, else an auto-generated one).
-function ResultsShare() {
-  const [info, setInfo] = useState(null);
-  const [copied, setCopied] = useState('');
-  useEffect(() => { api('/api/admin/results-token').then(setInfo).catch(() => setInfo({ token: null })); }, []);
-  if (!info) return null;
-  const copy = (txt, which) => { navigator.clipboard.writeText(txt); setCopied(which); };
-  if (!info.token) return (
-    <div className="note" style={{ marginBottom: 16 }}>
-      <b>Supervisor results link</b> — none yet. Set a <b>RESULTS_TOKEN</b> env var (or connect a database so one can be auto-created). Meanwhile <code>/results</code> still accepts your ADMIN_TOKEN.
-    </div>
-  );
-  const url = location.origin + '/results?token=' + encodeURIComponent(info.token);
-  return (
-    <div className="note" style={{ marginBottom: 16 }}>
-      <b>Supervisor results link</b> — read-only, de-identified &amp; name-stripped (P01, P02…); <b>not</b> admin access. Safe to send to supervisors.
-      {info.source === 'env' ? ' Source: RESULTS_TOKEN env var.' : ' Auto-generated and stored on the server, so the whole team shares this one link.'}
-      <div className="link-box" style={{ marginTop: 8 }}>{url}</div>
-      <div className="row" style={{ marginTop: 8 }}>
-        <button className="btn" onClick={() => copy(url, 'url')}>{copied === 'url' ? 'Copied ✓' : 'Copy results link'}</button>
-        <button className="btn" onClick={() => copy(info.token, 'tok')}>{copied === 'tok' ? 'Copied ✓' : 'Copy token only'}</button>
-        <a className="btn" href={url} target="_blank" rel="noreferrer">Open ↗</a>
-      </div>
-    </div>
-  );
-}
-
 function RecruitView() {
   const [cellKey, setCellKey] = useState('shared');
   const [custom, setCustom] = useState({ study: 'kangzhi', rec: 'direct', cond: 'main' });
@@ -753,7 +725,6 @@ function RecruitView() {
         <b> Every generated link is saved on the server, so the whole team sees the same list below</b> — and
         the next PID number is taken from everyone's links, so two of you can recruit at once without clashing.
       </div>
-      <ResultsShare />
       <div className="panel" style={{ marginBottom: 16 }}>
         <h3>1 · Chatbot version</h3>
         <div className="row" style={{ marginBottom: 10 }}>

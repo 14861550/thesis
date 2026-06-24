@@ -88,14 +88,3 @@ CREATE TABLE IF NOT EXISTS simulations (
 
 CREATE INDEX IF NOT EXISTS simulations_created_idx ON simulations (created_at DESC);
 CREATE INDEX IF NOT EXISTS simulations_source_idx  ON simulations (source_session_id);
-
--- app_config — small key/value store for server-side settings that should be
--- shared across admins and survive restarts. Currently holds the auto-generated
--- read-only results-share token (lib/db.js getEffectiveResultsToken) when no
--- RESULTS_TOKEN env var is set, so a separate supervisor link can exist without
--- touching the host's environment variables. Added idempotently.
-CREATE TABLE IF NOT EXISTS app_config (
-  key        text PRIMARY KEY,
-  value      text NOT NULL,
-  updated_at timestamptz NOT NULL DEFAULT now()
-);
