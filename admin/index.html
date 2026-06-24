@@ -705,7 +705,12 @@ function RecruitView() {
   for (const r of rows) {
     if (!r.pid) continue;
     const label = `${r.study || '—'} · ${r.rec || '—'} × ${r.condition || '—'}`;
-    (groupMap[label] = groupMap[label] || []).push({ pid: r.pid, link: recruitUrl(r), created: r.created_at || '' });
+    // `used` = the participant has actually started (status moved past 'started'
+    // or there are role-play turns) — drives a stronger delete confirm.
+    const used = (r.status && r.status !== 'started') || (r.phase_c_turns > 0);
+    (groupMap[label] = groupMap[label] || []).push({
+      pid: r.pid, link: recruitUrl(r), created: r.created_at || '', id: r.id, status: r.status, used,
+    });
   }
   const groups = Object.entries(groupMap).map(([label, links]) => {
     links.sort((a, b) => String(a.pid).localeCompare(String(b.pid), undefined, { numeric: true }));
@@ -715,6 +720,17 @@ function RecruitView() {
   const copyGroup = (label, links) => {
     navigator.clipboard.writeText(links.map((l) => l.pid + '\t' + l.link).join('\n'));
     setCopied(label);
+  };
+  // Delete a single generated link (its session row) — restores the delete the
+  // old localStorage list had, but now it removes the row from the shared DB, so
+  // a removed link cannot reappear for anyone. Stronger confirm if it's in use.
+  const delLink = async (l) => {
+    const msg = l.used
+      ? `Delete ${l.pid}? This participant has already started — their session and data will be permanently removed.`
+      : `Delete unused link ${l.pid}? It will be removed for the whole team.`;
+    if (typeof window.confirm === 'function' && !window.confirm(msg)) return;
+    try { await api('/api/admin/sessions/' + l.id, { method: 'DELETE' }); await load(); }
+    catch (e) { setErr(e.message); }
   };
   return (
     <div>
@@ -771,10 +787,13 @@ function RecruitView() {
             <div className="row" style={{ marginBottom: 10 }}>
               <button className="btn" onClick={() => copyGroup(g.label, g.links)}>{copied === g.label ? 'Copied ✓' : 'Copy all (PID + link)'}</button>
             </div>
-            <div className="kv kv-scroll" style={{ gridTemplateColumns: 'max-content 1fr', maxHeight: 320 }}>
+            <div className="kv kv-scroll" style={{ gridTemplateColumns: 'max-content 1fr max-content', maxHeight: 320 }}>
               {g.links.map((l) => [
-                <b key={l.pid + 'k'}>{l.pid}</b>,
+                <b key={l.pid + 'k'}>{l.pid}{l.used && <span className="muted" style={{ fontWeight: 400 }}> · used</span>}</b>,
                 <span key={l.pid + 'v'}><a href={l.link} target="_blank" rel="noreferrer">{l.link}</a></span>,
+                <button key={l.pid + 'd'} className="btn danger" style={{ padding: '2px 8px' }}
+                  title={l.used ? 'Delete this participant + their data' : 'Delete this unused link'}
+                  onClick={() => delLink(l)}>Delete</button>,
               ])}
             </div>
           </div>
